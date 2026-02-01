@@ -14,9 +14,7 @@ class GeminiClient:
         
         genai.configure(api_key=api_key)
 
-        # --- MOTOR ACTUALIZADO ---
-        # Usamos gemini-2.5-flash ya que confirmaste que tienes acceso.
-        # Es mucho mejor para imágenes y PDF.
+        # Usamos gemini-2.5-flash (Tu configuración original)
         self.model_name = 'gemini-2.5-flash' 
         
         try:
@@ -27,21 +25,16 @@ class GeminiClient:
             print(f"✅ IA Conectada: {self.model_name}")
         except Exception as e:
             print(f"❌ Error conectando 2.5, usando fallback: {e}")
-            self.model = genai.GenerativeModel('gemini-2.5-pro')
+            self.model = genai.GenerativeModel('gemini-1.5-flash')
 
     def _clean_json(self, text: str):
-        """Limpieza robusta para asegurar que el Frontend no falle."""
+        """Limpieza robusta."""
         try:
-            # 1. Limpiar bloques de código
             text = text.replace("```json", "").replace("```", "").strip()
-            
-            # 2. Encontrar el array JSON []
             start = text.find("[")
             end = text.rfind("]")
-            
             if start != -1 and end != -1:
                 return json.loads(text[start : end + 1])
-            
             return json.loads(text)
         except Exception as e:
             print(f"⚠️ Error JSON IA: {e}")
@@ -49,10 +42,10 @@ class GeminiClient:
                 "question": "Ocurrió un error al procesar el texto.",
                 "options": ["Reintentar", "Error", "Error", "Error"],
                 "answer": "Reintentar",
-                "explanation": "La IA no pudo estructurar el examen correctamente. Intenta con un texto más claro."
+                "explanation": "La IA no pudo estructurar el examen correctamente."
             }]
 
-    # --- 1. GENERAR LECCIÓN (TUS PROMPTS CONSERVADOS) ---
+    # --- 1. GENERAR LECCIÓN (INTACTO) ---
     async def generate_lesson_content(self, topic: str) -> str:
         prompt = f"""
         Actúa como un docente experto de secundaria.
@@ -72,16 +65,15 @@ class GeminiClient:
         except Exception as e:
             return f"No se pudo generar el contenido. Error: {e}"
 
-    # --- 2. EXAMEN DESDE TEXTO (TUS PROMPTS CONSERVADOS) ---
-    async def generate_quiz(self, text_content: str):
+    # --- 2. EXAMEN DESDE TEXTO (AGREGADO num_questions) ---
+    async def generate_quiz(self, text_content: str, num_questions: int = 5):
+        # NOTA: Inyectamos {num_questions} pero mantenemos TU prompt original
         prompt = f"""
-        Genera un examen de 5 preguntas basado en este texto.
+        Genera un examen de EXACTAMENTE {num_questions} preguntas basado en este texto.
         
         CRITERIOS PEDAGÓGICOS OBLIGATORIOS:
-        - Preguntas 1 y 2 (Nivel Literal): Información explícita en el texto.
-        - Preguntas 3 y 4 (Nivel Inferencial): Deducir información no explícita.
-        - Pregunta 5 (Nivel Crítico): Reflexión o aplicación del conocimiento.
-        2. NO USES PREGUNTAS GENÉRICAS. Deben ser específicas de este texto.
+        - Preguntas de Nivel Literal, Inferencial y Crítico (distribuidas).
+        - NO USES PREGUNTAS GENÉRICAS. Deben ser específicas de este texto.
         
         !!! IMPORTANTE SOBRE EL FEEDBACK ("explanation") !!!:
         - La explicación NO puede ser genérica como "se deduce del texto".
@@ -101,7 +93,6 @@ class GeminiClient:
         TEXTO: "{text_content[:20000]}"
         """
         try:
-            # Usamos temperatura baja para que respete el JSON
             response = await self.model.generate_content_async(
                 prompt,
                 generation_config=genai.types.GenerationConfig(temperature=0.2)
@@ -111,10 +102,10 @@ class GeminiClient:
             print(f"❌ Error Quiz Texto: {e}")
             return []
 
-    # --- 3. EXAMEN DESDE IMAGEN (MOTOR NUEVO + TUS CRITERIOS) ---
-    async def generate_quiz_from_image(self, image_bytes: bytes, mime_type: str):
-        prompt = """
-        Analiza esta imagen educativa. Genera un examen de 5 preguntas.
+    # --- 3. EXAMEN DESDE IMAGEN (AGREGADO num_questions) ---
+    async def generate_quiz_from_image(self, image_bytes: bytes, mime_type: str, num_questions: int = 5):
+        prompt = f"""
+        Analiza esta imagen educativa. Genera un examen de {num_questions} preguntas.
 
         CRITERIOS PEDAGÓGICOS:
         - Si hay texto: Preguntas Literales, Inferenciales y Críticas.
@@ -123,12 +114,12 @@ class GeminiClient:
 
         FORMATO JSON ARRAY OBLIGATORIO:
         [
-            {
+            {{
                 "question": "¿Pregunta?",
                 "options": ["A) ...", "B) ...", "C) ...", "D) ..."],
                 "answer": "A) ...",
                 "explanation": "Explicación detallada."
-            }
+            }}
         ]
         """
         try:
@@ -141,7 +132,7 @@ class GeminiClient:
             print(f"❌ Error Quiz Imagen: {e}")
             return []
 
-    # --- 4. FEEDBACK FINAL (TUS PROMPTS CONSERVADOS) ---
+    # --- 4. FEEDBACK FINAL (INTACTO) ---
     async def generate_final_feedback(self, score: int, total: int, topic: str) -> str:
         prompt = f"""
         Un estudiante obtuvo {score}/{total} en un examen sobre "{topic}".
