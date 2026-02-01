@@ -6,100 +6,160 @@ import re
 
 load_dotenv()
 
-# --- PERSONALIDAD DEL BOT ---
-EDU_PROMPT = """
-Eres EduBot, un asistente educativo virtual inteligente, paciente y motivador.
-Tu misión es ayudar a estudiantes y docentes a facilitar el proceso de aprendizaje.
-
-REGLAS DE COMPORTAMIENTO:
-1. IDENTIDAD: Si te preguntan quién eres, responde siempre: "Soy EduBot, tu asistente educativo virtual". Nunca menciones que eres un modelo de Google.
-2. TONO: Usa un tono amable, profesional pero cercano. Usa emojis ocasionalmente para ser amigable (🎓, 📚, ✨).
-3. PEDAGOGÍA: No des solo las respuestas directas (ej: en matemáticas). Explica el paso a paso o guía al estudiante para que entienda el concepto.
-4. FORMATO: Usa Negritas para resaltar conceptos clave y Listas para organizar la información.
-5. ALCANCE: Si te preguntan algo fuera del contexto educativo (ej: chismes, ilegalidades), responde educadamente que estás diseñado para ayudar en temas de aprendizaje.
-"""
-
 class GeminiClient:
     def __init__(self):
         api_key = os.getenv("GEMINI_API_KEY")
         if not api_key:
-            print("ADVERTENCIA: GEMINI_API_KEY no encontrada")
+            print("⚠️ ADVERTENCIA: GEMINI_API_KEY no encontrada")
         
         genai.configure(api_key=api_key)
 
-        # Usamos 2.5-flash como solicitaste
-        self.model = genai.GenerativeModel(
-            model_name='gemini-2.5-flash', 
-            system_instruction=EDU_PROMPT
-        )
-
-    # --- 1. CHAT NORMAL ---
-    async def generate_response(self, prompt: str, image_bytes: bytes = None, mime_type: str = None) -> str:
-        try:
-            content = [prompt]
-            if image_bytes and mime_type:
-                content.append({"mime_type": mime_type, "data": image_bytes})
-
-            response = await self.model.generate_content_async(content)
-            return response.text
-        except Exception as e:
-            print(f"Error Gemini Chat: {e}")
-            return f"Error: {str(e)}"   
-
-    # --- 2. GENERAR EXÁMENES (CORREGIDO) ---
-    async def generate_quiz(self, text_content: str, num_questions: int = 5):
-        prompt = f"""
-        Actúa como un profesor experto. Basándote ÚNICAMENTE en el siguiente texto, genera un examen de {num_questions} preguntas de selección múltiple.
+        # --- MOTOR ACTUALIZADO ---
+        # Usamos gemini-2.5-flash ya que confirmaste que tienes acceso.
+        # Es mucho mejor para imágenes y PDF.
+        self.model_name = 'gemini-2.5-flash' 
         
-        TEXTO BASE:
-        "{text_content[:15000]}"
-
-        REGLAS OBLIGATORIAS:
-        1. Responde ÚNICAMENTE con un JSON válido.
-        2. NO escribas "Aquí está el JSON", ni saludos, ni uses bloques de código markdown (```json).
-        3. El formato debe ser exactamente una lista de objetos como este:
-        [
-            {{
-                "question": "¿Pregunta?",
-                "options": ["A) Opción 1", "B) Opción 2", "C) Opción 3", "D) Opción 4"],
-                "answer": "A) Opción 1",
-                "explanation": "Explicación breve de por qué es la correcta."
-            }}
-        ]
-        """
-
         try:
-            response = await self.model.generate_content_async(prompt)
-            raw_text = response.text
-            
-            # --- CORRECCIÓN AQUÍ ---
-            # _clean_json_response YA devuelve el objeto JSON (lista/diccionario).
-            # No hacemos json.loads() aquí de nuevo.
-            quiz_data = self._clean_json_response(raw_text)
-            
-            return quiz_data
-
+            self.model = genai.GenerativeModel(
+                model_name=self.model_name,
+                system_instruction="Eres EduBot, un profesor experto. Tu objetivo es evaluar y enseñar comprensión lectora con precisión pedagógica."
+            )
+            print(f"✅ IA Conectada: {self.model_name}")
         except Exception as e:
-            print(f"Error generando quiz: {e}")
-            return []
+            print(f"❌ Error conectando 2.5, usando fallback: {e}")
+            self.model = genai.GenerativeModel('gemini-2.5-pro')
 
-    # --- 3. HELPER PARA LIMPIAR BASURA DE LA IA ---
-    def _clean_json_response(self, text: str):
-        """Busca el array JSON [...] dentro de todo el texto basura que mande la IA"""
+    def _clean_json(self, text: str):
+        """Limpieza robusta para asegurar que el Frontend no falle."""
         try:
-            # 1. Quitar markdown
-            text = text.replace("```json", "").replace("```", "")
+            # 1. Limpiar bloques de código
+            text = text.replace("```json", "").replace("```", "").strip()
             
-            # 2. Buscar el primer '[' y el último ']'
+            # 2. Encontrar el array JSON []
             start = text.find("[")
             end = text.rfind("]")
             
             if start != -1 and end != -1:
-                clean_json = text[start : end + 1]
-                return json.loads(clean_json)
-            else:
-                # Si no encuentra array, intenta cargar todo
-                return json.loads(text)
-        except json.JSONDecodeError:
-            print(f"Error decodificando JSON. Texto recibido: {text[:100]}...")
+                return json.loads(text[start : end + 1])
+            
+            return json.loads(text)
+        except Exception as e:
+            print(f"⚠️ Error JSON IA: {e}")
+            return [{
+                "question": "Ocurrió un error al procesar el texto.",
+                "options": ["Reintentar", "Error", "Error", "Error"],
+                "answer": "Reintentar",
+                "explanation": "La IA no pudo estructurar el examen correctamente. Intenta con un texto más claro."
+            }]
+
+    # --- 1. GENERAR LECCIÓN (TUS PROMPTS CONSERVADOS) ---
+    async def generate_lesson_content(self, topic: str) -> str:
+        prompt = f"""
+        Actúa como un docente experto de secundaria.
+        Escribe un artículo educativo breve y moderno sobre: "{topic}".
+        
+        Requisitos Pedagógicos:
+        1. Adaptado a jóvenes (vocabulario claro, no rebuscado).
+        2. Enfoque actual (relacionado con la realidad, valores o tecnología si aplica).
+        3. Estructura: Título atractivo, Introducción, 3 Puntos Clave, Conclusión reflexiva.
+        4. Extensión: Máximo 350 palabras.
+        
+        Usa formato Markdown limpio.
+        """
+        try:
+            response = await self.model.generate_content_async(prompt)
+            return response.text
+        except Exception as e:
+            return f"No se pudo generar el contenido. Error: {e}"
+
+    # --- 2. EXAMEN DESDE TEXTO (TUS PROMPTS CONSERVADOS) ---
+    async def generate_quiz(self, text_content: str):
+        prompt = f"""
+        Genera un examen de 5 preguntas basado en este texto.
+        
+        CRITERIOS PEDAGÓGICOS OBLIGATORIOS:
+        - Preguntas 1 y 2 (Nivel Literal): Información explícita en el texto.
+        - Preguntas 3 y 4 (Nivel Inferencial): Deducir información no explícita.
+        - Pregunta 5 (Nivel Crítico): Reflexión o aplicación del conocimiento.
+        2. NO USES PREGUNTAS GENÉRICAS. Deben ser específicas de este texto.
+        
+        !!! IMPORTANTE SOBRE EL FEEDBACK ("explanation") !!!:
+        - La explicación NO puede ser genérica como "se deduce del texto".
+        - Debe explicar explícitamente POR QUÉ esa opción es la correcta citando una pista del texto o la lógica usada.
+        - Ejemplo CORRECTO: "Es correcta porque en el segundo párrafo el autor menciona que los árboles mueren de pie, lo que simboliza resistencia."
+        
+        FORMATO JSON ARRAY OBLIGATORIO:
+        [
+            {{
+                "question": "¿Pregunta?",
+                "options": ["A) ...", "B) ...", "C) ...", "D) ..."],
+                "answer": "A) ...", 
+                "explanation": "Explicación detallada..."
+            }}
+        ]
+
+        TEXTO: "{text_content[:20000]}"
+        """
+        try:
+            # Usamos temperatura baja para que respete el JSON
+            response = await self.model.generate_content_async(
+                prompt,
+                generation_config=genai.types.GenerationConfig(temperature=0.2)
+            )
+            return self._clean_json(response.text)
+        except Exception as e:
+            print(f"❌ Error Quiz Texto: {e}")
             return []
+
+    # --- 3. EXAMEN DESDE IMAGEN (MOTOR NUEVO + TUS CRITERIOS) ---
+    async def generate_quiz_from_image(self, image_bytes: bytes, mime_type: str):
+        prompt = """
+        Analiza esta imagen educativa. Genera un examen de 5 preguntas.
+
+        CRITERIOS PEDAGÓGICOS:
+        - Si hay texto: Preguntas Literales, Inferenciales y Críticas.
+        - Si es gráfico: Análisis de datos visuales.
+        - EXPLICACIÓN: Detalla por qué la respuesta es correcta en el campo "explanation".
+
+        FORMATO JSON ARRAY OBLIGATORIO:
+        [
+            {
+                "question": "¿Pregunta?",
+                "options": ["A) ...", "B) ...", "C) ...", "D) ..."],
+                "answer": "A) ...",
+                "explanation": "Explicación detallada."
+            }
+        ]
+        """
+        try:
+            response = await self.model.generate_content_async([
+                prompt,
+                {"mime_type": mime_type, "data": image_bytes}
+            ])
+            return self._clean_json(response.text)
+        except Exception as e:
+            print(f"❌ Error Quiz Imagen: {e}")
+            return []
+
+    # --- 4. FEEDBACK FINAL (TUS PROMPTS CONSERVADOS) ---
+    async def generate_final_feedback(self, score: int, total: int, topic: str) -> str:
+        prompt = f"""
+        Un estudiante obtuvo {score}/{total} en un examen sobre "{topic}".
+        
+        Actúa como su tutor personal. Tu respuesta será leída directamente por el alumno.
+        Escribe un feedback de 3 partes (usa Markdown):
+        
+        1. **Evaluación:** (Ej: "¡Excelente trabajo!" o "Buen esfuerzo").
+        2. **Análisis:** Explica brevemente qué significa su nota (si falló, anímalo a leer entre líneas; si acertó, felicita su pensamiento crítico).
+        3. **Consejo:** Un tip rápido para mejorar en la próxima lectura.
+        
+        Extensión: Máximo 80 palabras.
+        """
+        try:
+            response = await self.model.generate_content_async(prompt)
+            return response.text
+        except Exception:
+            return "¡Sigue practicando! La lectura es clave."
+
+def get_gemini_client():
+    return GeminiClient()

@@ -1,34 +1,39 @@
 import os
+import jwt
 from datetime import datetime, timedelta
-from jose import jwt, JWTError
+from dotenv import load_dotenv
+
+load_dotenv()
 
 class JWTHandler:
     def __init__(self):
-        # Configuración: Clave secreta y Algoritmo
-        # Si no hay variable de entorno, usa la clave por defecto
-        self.SECRET_KEY = os.getenv("SECRET_KEY", "tu_clave_secreta_super_segura")
-        self.ALGORITHM = "HS256"
-        self.ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 # 24 horas de validez
+        self.secret_key = os.getenv("JWT_SECRET_KEY")
+        if not self.secret_key:
+            raise ValueError("JWT_SECRET_KEY no encontrada en .env")
+        self.algorithm = "HS256"
+        self.access_token_expire_minutes = 1440 # 24 horas
 
-    # --- 1. FUNCIÓN PARA CREAR TOKEN (La que faltaba) ---
     def create_token(self, email: str) -> str:
-        # El token necesita una fecha de expiración
-        expire = datetime.utcnow() + timedelta(minutes=self.ACCESS_TOKEN_EXPIRE_MINUTES)
-        
-        # El 'sub' (subject) es el estándar para guardar el ID o Email del usuario
-        to_encode = {
+        """Crea un token nuevo al hacer login"""
+        payload = {
             "sub": email,
-            "exp": expire
+            "email": email,
+            "exp": datetime.utcnow() + timedelta(minutes=self.access_token_expire_minutes)
         }
-        
-        # Creamos el string encriptado
-        encoded_jwt = jwt.encode(to_encode, self.SECRET_KEY, algorithm=self.ALGORITHM)
-        return encoded_jwt
+        return jwt.encode(payload, self.secret_key, algorithm=self.algorithm)
 
-    # --- 2. FUNCIÓN PARA LEER/DECODIFICAR TOKEN ---
-    def decode_token(self, token: str):
+    # --- ESTA ES LA FUNCIÓN QUE FALTABA ---
+    def verify_token(self, token: str):
+        """Verifica si el token que envía el frontend es real"""
         try:
-            payload = jwt.decode(token, self.SECRET_KEY, algorithms=[self.ALGORITHM])
+            payload = jwt.decode(token, self.secret_key, algorithms=[self.algorithm])
             return payload
-        except JWTError:
+        except jwt.ExpiredSignatureError:
+            print("❌ El Token ha expirado.")
+            return None
+        except jwt.InvalidTokenError as e:
+            print(f"❌ Token inválido: {e}")
+            return None
+        except Exception as e:
+            print(f"❌ Error decodificando token: {e}")
             return None
