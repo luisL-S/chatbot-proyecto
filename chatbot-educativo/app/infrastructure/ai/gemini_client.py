@@ -46,10 +46,14 @@ class GeminiClient:
             }]
 
     # --- 1. GENERAR LECCIÓN (INTACTO) ---
-    async def generate_lesson_content(self, topic: str) -> str:
+    async def generate_lesson_content(self, topic: str,difficulty: str = "Medio") -> str:
         prompt = f"""
         Actúa como un docente experto de secundaria.
         Escribe un artículo educativo breve y moderno sobre: "{topic}".
+        NIVEL DE DIFICULTAD: {difficulty}
+        - Si es "Fácil": Usa lenguaje muy simple, analogías divertidas y párrafos cortos (para niños/principiantes).
+        - Si es "Medio": Tono estándar de secundaria, vocabulario académico moderado.
+        - Si es "Difícil": Tono universitario/técnico, análisis profundo y vocabulario avanzado.
         
         Requisitos Pedagógicos:
         1. Adaptado a jóvenes (vocabulario claro, no rebuscado).
@@ -66,10 +70,14 @@ class GeminiClient:
             return f"No se pudo generar el contenido. Error: {e}"
 
     # --- 2. EXAMEN DESDE TEXTO (AGREGADO num_questions) ---
-    async def generate_quiz(self, text_content: str, num_questions: int = 5):
+    async def generate_quiz(self, text_content: str, num_questions: int = 5, difficulty: str = "Medio"):
         # NOTA: Inyectamos {num_questions} pero mantenemos TU prompt original
         prompt = f"""
         Genera un examen de EXACTAMENTE {num_questions} preguntas basado en este texto.
+        NIVEL DE DIFICULTAD: {difficulty}
+        - Fácil: Preguntas directas y literales. Opciones obvias.
+        - Medio: Mezcla de literales e inferenciales.
+        - Difícil: Mayoría de preguntas críticas/inferenciales. Opciones distractores complejos ("trampas").
         
         CRITERIOS PEDAGÓGICOS OBLIGATORIOS:
         - Preguntas de Nivel Literal, Inferencial y Crítico (distribuidas).
@@ -103,9 +111,10 @@ class GeminiClient:
             return []
 
     # --- 3. EXAMEN DESDE IMAGEN (AGREGADO num_questions) ---
-    async def generate_quiz_from_image(self, image_bytes: bytes, mime_type: str, num_questions: int = 5):
+    async def generate_quiz_from_image(self, image_bytes: bytes, mime_type: str, num_questions: int = 5,difficulty: str = "Medio"):
         prompt = f"""
         Analiza esta imagen educativa. Genera un examen de {num_questions} preguntas.
+        NIVEL DE DIFICULTAD: {difficulty}.
 
         CRITERIOS PEDAGÓGICOS:
         - Si hay texto: Preguntas Literales, Inferenciales y Críticas.
@@ -151,6 +160,16 @@ class GeminiClient:
             return response.text
         except Exception:
             return "¡Sigue practicando! La lectura es clave."
+        
+    async def generate_content(self, prompt: str) -> str:
+        """Genera una respuesta de texto simple para el chat"""
+        try:
+            # Usamos el modelo para generar contenido (asíncrono)
+            response = await self.model.generate_content_async(prompt)
+            return response.text
+        except Exception as e:
+            print(f"Error en Gemini Chat: {e}")
+            return "Lo siento, estoy teniendo problemas para conectar con mi cerebro digital. Intenta de nuevo."
 
 def get_gemini_client():
     return GeminiClient()

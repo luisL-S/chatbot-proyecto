@@ -3,3 +3,25 @@ venv/
 .env
 .DS_Store
 uploads/
+
+# --- IGNORAR LIBRERÍAS (EN TODAS LAS CARPETAS) ---
+node_modules/
+**/node_modules/
+dist/
+build/
+
+# --- IGNORAR PYTHON ---
+__pycache__/
+**/__pycache__/
+*.pyc
+venv/
+.pytest_cache/
+
+# --- IGNORAR SECRETOS ---
+.env
+.env.local
+**/.env
+
+# --- SISTEMA ---
+.DS_Store
+Thumbs.db
