@@ -22,3 +22,22 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Librerías pesadas de Node (Frontend)
+node_modules/
+dist/
+build/
+
+# Librerías y caché de Python (Backend)
+__pycache__/
+*.pyc
+venv/
+.pytest_cache/
+
+# Archivos de Seguridad (¡Nunca subir claves!)
+.env
+.env.local
+
+# Archivos de Sistema Operativo
+.DS_Store
+Thumbs.db
