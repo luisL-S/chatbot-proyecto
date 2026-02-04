@@ -4,7 +4,6 @@ from contextlib import asynccontextmanager
 from app.config.database import db
 from app.interfaces.api.routes import auth_routes, chat_routes, reading_routes 
 
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup: Conectar a la DB

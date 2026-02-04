@@ -43,12 +43,19 @@ class PromotionRequest(BaseModel):
 def get_user_id(user_dict: dict) -> str:
     return user_dict.get("sub") or user_dict.get("email") or user_dict.get("username") or "anonymous"
 
-# --- SEGURIDAD: VERIFICADOR DE ROL ---
+# --- SEGURIDAD: VERIFICADOR DE ROL (CORREGIDO) ---
 async def is_teacher(user_dict: dict) -> bool:
     try:
         email = user_dict.get("sub") or user_dict.get("email")
+        # Buscamos al usuario en la BD
         user = await db["users"].find_one({"email": email})
-        return user is not None and user.get("role") == "teacher"
+        
+        # AQUI ESTABA EL BLOQUEO:
+        # Antes solo verificaba "teacher". Ahora verificamos ambos.
+        if user and user.get("role") in ["teacher", "admin"]: 
+            return True
+            
+        return False
     except:
         return False
 
@@ -97,8 +104,15 @@ async def distribute_lesson_to_users(content: str, quiz: list, topic: str, creat
 # --- RUTA PARA OBTENER ROL ---
 @router.get("/user/role")
 async def get_my_role(current_user: dict = Depends(get_current_user)):
-    is_docente = await is_teacher(current_user)
-    return {"role": "teacher" if is_docente else "student"}
+    # Buscamos el rol real en la base de datos
+    email = current_user.get("sub") or current_user.get("email")
+    user = await db["users"].find_one({"email": email})
+    
+    if user:
+        # Devuelve EXACTAMENTE lo que está en la BD ("admin", "teacher", "student")
+        return {"role": user.get("role", "student")}
+    
+    return {"role": "student"}  
 
 # --- SEGURIDAD: PROMOCIÓN DOCENTE ---
 @router.post("/admin/verify-teacher-code")
