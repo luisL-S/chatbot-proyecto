@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { authService } from '../services/authService';
+import { ShieldCheck, Mail, Lock, ArrowRight } from 'lucide-react';
 
 export default function RegisterPage() {
   const [email, setEmail] = useState('');
@@ -12,105 +13,54 @@ export default function RegisterPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError('');
-    setSuccess('');
-    setLoading(true);
+    setError(''); setSuccess(''); setLoading(true);
 
     try {
       await authService.register(email, password);
-      setSuccess('¡Cuenta creada con éxito! Redirigiendo al login...');
-      // Esperamos 2 segundos para que el usuario lea el mensaje y luego lo mandamos al login
-      setTimeout(() => {
-        navigate('/login');
-      }, 2000);
+      setSuccess('¡Cuenta creada con éxito!');
+      setTimeout(() => { navigate('/login'); }, 2000);
     } catch (err) {
       console.error(err);
-      setError('Error al registrar. Es posible que el correo ya exista.');
+      setError('Error al registrar. Intenta con otro correo.');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 font-sans p-4">
-      
-      {/* Tarjeta Principal */}
-      <div className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md border border-gray-100 transform transition-all animate-fade-in-up">
-        
-        {/* Encabezado */}
+    <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4 font-sans text-slate-200">
+      <div className="bg-slate-900 w-full max-w-md p-8 rounded-3xl shadow-2xl border border-slate-800">
+
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-purple-50 text-purple-600 text-3xl mb-4 shadow-sm">
-            🚀
+          <div className="bg-slate-800 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 text-indigo-400 shadow-lg border border-slate-700">
+            <ShieldCheck size={32} />
           </div>
-          <h1 className="text-3xl font-bold text-gray-800 tracking-tight">Crear Cuenta</h1>
-          <p className="text-gray-500 mt-2 text-sm">Únete a EduBot y empieza a aprender.</p>
+          <h1 className="text-3xl font-extrabold text-white tracking-tight">Crear Cuenta</h1>
+          <p className="text-slate-400 mt-2 text-sm font-medium">Únete a EduBot hoy mismo.</p>
         </div>
 
-        {/* Mensajes de Estado */}
-        {error && (
-          <div className="bg-red-50 border-l-4 border-red-500 text-red-700 p-3 rounded mb-6 text-sm flex items-center">
-            <span className="mr-2">⚠️</span> {error}
-          </div>
-        )}
-        {success && (
-          <div className="bg-green-50 border-l-4 border-green-500 text-green-700 p-3 rounded mb-6 text-sm flex items-center">
-            <span className="mr-2">✅</span> {success}
-          </div>
-        )}
+        {error && <div className="bg-rose-900/20 text-rose-300 p-3 rounded-xl mb-6 text-sm text-center border border-rose-900/50 font-medium">{error}</div>}
+        {success && <div className="bg-emerald-900/20 text-emerald-300 p-3 rounded-xl mb-6 text-sm text-center border border-emerald-900/50 font-medium">{success}</div>}
 
-        {/* Formulario */}
         <form onSubmit={handleSubmit} className="space-y-5">
-          
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1 pl-1">Correo Electrónico</label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:bg-white transition-all placeholder-gray-400"
-              placeholder="tu@email.com"
-              required
-            />
+          <div className="relative group">
+            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-500 group-focus-within:text-indigo-400 transition-colors"><Mail size={20} /></div>
+            <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full pl-11 pr-4 py-3.5 bg-slate-950 border border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all text-white font-medium placeholder:text-slate-600" placeholder="tu@email.com" required />
           </div>
 
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1 pl-1">Contraseña</label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:bg-white transition-all placeholder-gray-400"
-              placeholder="••••••••"
-              required
-            />
+          <div className="relative group">
+            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-500 group-focus-within:text-indigo-400 transition-colors"><Lock size={20} /></div>
+            <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full pl-11 pr-4 py-3.5 bg-slate-950 border border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all text-white font-medium placeholder:text-slate-600" placeholder="••••••••" required />
           </div>
 
-          <button
-            type="submit"
-            disabled={loading}
-            className={`w-full py-3.5 px-4 rounded-xl text-white font-bold shadow-md transition-all transform hover:-translate-y-0.5 hover:shadow-lg ${
-              loading 
-                ? 'bg-purple-400 cursor-not-allowed' 
-                : 'bg-purple-600 hover:bg-purple-700'
-            }`}
-          >
-            {loading ? "Registrando..." : "Registrarse Gratis"}
+          <button type="submit" disabled={loading} className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3.5 rounded-xl transition-all shadow-lg shadow-indigo-900/20 flex justify-center items-center gap-2 active:scale-95 border border-indigo-500">
+            {loading ? "Registrando..." : "Registrarse Gratis"} {!loading && <ArrowRight size={20} />}
           </button>
         </form>
 
-        {/* Footer / Link a Login */}
-        <div className="mt-8 text-center pt-6 border-t border-gray-100">
-          <p className="text-sm text-gray-500">
-            ¿Ya tienes cuenta?{' '}
-            <Link 
-              to="/login" 
-              className="font-bold text-purple-600 hover:text-purple-800 hover:underline transition-colors"
-            >
-              Inicia Sesión aquí
-            </Link>
-          </p>
+        <div className="mt-8 text-center pt-6 border-t border-slate-800">
+          <p className="text-sm text-slate-400 font-medium">¿Ya tienes cuenta? <Link to="/login" className="font-bold text-indigo-400 hover:text-indigo-300 transition-colors">Inicia Sesión</Link></p>
         </div>
-
       </div>
     </div>
   );
