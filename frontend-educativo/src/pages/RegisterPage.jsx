@@ -1,11 +1,14 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { authService } from '../services/authService';
-import { ShieldCheck, Mail, Lock, ArrowRight } from 'lucide-react';
+import { ShieldCheck, Mail, Lock, ArrowRight, GraduationCap } from 'lucide-react';
 
 export default function RegisterPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  // 1. Estado para el Grado (Valor por defecto: 1er Año)
+  const [grade, setGrade] = useState('1er Año');
+
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
@@ -16,7 +19,8 @@ export default function RegisterPage() {
     setError(''); setSuccess(''); setLoading(true);
 
     try {
-      await authService.register(email, password);
+      // 2. Enviamos el grado al backend
+      await authService.register(email, password, grade);
       setSuccess('¡Cuenta creada con éxito!');
       setTimeout(() => { navigate('/login'); }, 2000);
     } catch (err) {
@@ -43,11 +47,37 @@ export default function RegisterPage() {
         {success && <div className="bg-emerald-900/20 text-emerald-300 p-3 rounded-xl mb-6 text-sm text-center border border-emerald-900/50 font-medium">{success}</div>}
 
         <form onSubmit={handleSubmit} className="space-y-5">
+
+          {/* CAMPO CORREO */}
           <div className="relative group">
             <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-500 group-focus-within:text-indigo-400 transition-colors"><Mail size={20} /></div>
             <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full pl-11 pr-4 py-3.5 bg-slate-950 border border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all text-white font-medium placeholder:text-slate-600" placeholder="tu@email.com" required />
           </div>
 
+          {/* 👇 AQUÍ FALTABA ESTE BLOQUE: SELECTOR DE AÑO ACADÉMICO */}
+          <div className="relative group">
+            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-500 group-focus-within:text-indigo-400 transition-colors">
+              <GraduationCap size={20} />
+            </div>
+            <select
+              value={grade}
+              onChange={(e) => setGrade(e.target.value)}
+              className="w-full pl-11 pr-10 py-3.5 bg-slate-950 border border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all text-white font-medium appearance-none cursor-pointer hover:bg-slate-900"
+            >
+              <option value="1er Año">1er Año</option>
+              <option value="2do Año">2do Año</option>
+              <option value="3er Año">3er Año</option>
+              <option value="4to Año">4to Año</option>
+              <option value="5to Año">5to Año</option>
+            </select>
+            {/* Flecha personalizada para el select */}
+            <div className="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none text-slate-500">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+            </div>
+          </div>
+          {/* 👆 FIN DEL BLOQUE NUEVO */}
+
+          {/* CAMPO CONTRASEÑA */}
           <div className="relative group">
             <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-500 group-focus-within:text-indigo-400 transition-colors"><Lock size={20} /></div>
             <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full pl-11 pr-4 py-3.5 bg-slate-950 border border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all text-white font-medium placeholder:text-slate-600" placeholder="••••••••" required />

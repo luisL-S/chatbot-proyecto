@@ -5,9 +5,9 @@ import autoTable from 'jspdf-autotable';
 import ReactMarkdown from 'react-markdown';
 import {
   Upload, FileText, BookOpen, Menu, X,
-  GraduationCap, LogOut, Play, CheckCircle, RotateCcw,
+  GraduationCap, LogOut, CheckCircle, RotateCcw,
   AlertCircle, Trash2, ArrowRight, UserPlus, FileQuestion,
-  LayoutDashboard, User, Users, Shield, Lock, Volume2, StopCircle, Download, MessageCircle, Send, AlertTriangle
+  LayoutDashboard, User, Users, Shield, Lock, Volume2, StopCircle, Download, MessageCircle, Send, AlertTriangle, Filter
 } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 
@@ -114,7 +114,6 @@ export default function ChatPage() {
     } catch (e) { console.error("Error verificando rol"); }
   };
 
-  // --- GESTIÓN DE DATOS ---
   const loadHistoryList = async () => {
     try {
       const res = await fetch('http://127.0.0.1:8000/api/reading/history', { headers: { 'Authorization': `Bearer ${getToken()}` } });
@@ -367,8 +366,6 @@ export default function ChatPage() {
           </div>
         )}
 
-        {/* BOTÓN "ACCESO DOCENTE" ELIMINADO CORRECTAMENTE */}
-
         {/* Lista de Historial (Scrollable) */}
         <div className="flex-1 overflow-y-auto p-4 custom-scrollbar mt-2">
           <h3 className="text-[10px] font-bold text-slate-500 uppercase mb-3 px-2 tracking-wider">Historial</h3>
@@ -417,8 +414,13 @@ export default function ChatPage() {
                 <OptionCard icon={<Upload />} title="Subir Archivo" onClick={() => fileInputRef.current.click()} iconColor="text-indigo-600" bgColor="bg-indigo-50">
                   <input type="file" ref={fileInputRef} className="hidden" onChange={(e) => { if (e.target.files[0]) { setSelectedFile(e.target.files[0]); setModals({ ...modals, upload: true }); } }} accept=".pdf,.docx,.png,.jpg,.jpeg" />
                 </OptionCard>
-                <OptionCard icon={<FileText />} title="Pegar Texto" onClick={() => setModals({ ...modals, paste: true })} iconColor="text-sky-600" bgColor="bg-sky-50" />
-                <OptionCard icon={<BookOpen />} title="Crear Lección" onClick={() => setModals({ ...modals, topic: true })} iconColor="text-violet-600" bgColor="bg-violet-50" />
+                {/* 🔒 SOLO DOCENTE VE ESTO */}
+                {isTeacherMode && (
+                  <>
+                    <OptionCard icon={<FileText />} title="Pegar Texto" onClick={() => setModals({ ...modals, paste: true })} iconColor="text-sky-600" bgColor="bg-sky-50" />
+                    <OptionCard icon={<BookOpen />} title="Crear Lección" onClick={() => setModals({ ...modals, topic: true })} iconColor="text-violet-600" bgColor="bg-violet-50" />
+                  </>
+                )}
               </div>
             </div>
           )}
@@ -639,6 +641,12 @@ const AdminPanel = ({ token, resetApp }) => {
     admin: "Administrador"
   };
 
+  // Función segura para obtener el nombre del rol
+  const getRoleName = (role) => {
+    if (!role) return "";
+    return roleMap[role.toLowerCase()] || role;
+  };
+
   let currentUserEmail = "";
   try {
     const payload = JSON.parse(atob(token.split('.')[1]));
@@ -714,7 +722,7 @@ const AdminPanel = ({ token, resetApp }) => {
                   <td className="p-5 text-sm text-slate-500">{u.email}</td>
                   <td className="p-5">
                     <span className={`px-3 py-1 rounded-full text-xs font-bold border ${u.role === 'admin' ? 'bg-slate-900 text-white border-slate-900' : u.role === 'teacher' ? 'bg-indigo-50 text-indigo-700 border-indigo-100' : 'bg-white text-slate-600 border-slate-200'}`}>
-                      {(roleMap[u.role] || u.role).toUpperCase()}
+                      {getRoleName(u.role).toUpperCase()}
                     </span>
                   </td>
                   <td className="p-5 flex justify-end gap-2">
@@ -741,7 +749,7 @@ const AdminPanel = ({ token, resetApp }) => {
             <div className="flex justify-center mb-4 text-indigo-500"><Shield size={48} /></div>
             <h3 className="text-xl font-bold text-slate-800 mb-2">¿Cambiar Rol?</h3>
             <p className="text-sm text-slate-500 mb-6">
-              El usuario <strong>{pendingRoleChange.email}</strong> pasará a ser <strong className="uppercase text-indigo-600">{roleMap[pendingRoleChange.newRole] || pendingRoleChange.newRole}</strong>.
+              El usuario <strong>{pendingRoleChange.email}</strong> pasará a ser <strong className="uppercase text-indigo-600">{getRoleName(pendingRoleChange.newRole)}</strong>.
             </p>
             <div className="flex gap-3">
               <button onClick={() => setPendingRoleChange(null)} className="flex-1 py-3 text-slate-500 font-bold hover:bg-slate-100 rounded-xl transition">Cancelar</button>
@@ -754,18 +762,34 @@ const AdminPanel = ({ token, resetApp }) => {
   );
 };
 
-// Modal de Configuración (RECUPERADO)
+// Modal de Configuración (CON DOBLE FILTRO: AÑO Y SECCIÓN)
 const ConfigModal = ({ title, onClose, onConfirm, inputs, setInputs, type, placeholder, fileName, isTeacher }) => {
   const [suggestions, setSuggestions] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [typingTimeout, setTypingTimeout] = useState(null);
+
+  // ESTADOS DE FILTRO
+  const [filterGrade, setFilterGrade] = useState("Todos");
+  const [filterSection, setFilterSection] = useState("Todos");
 
   const handleSearchUsers = async (text) => {
     const terms = text.split(','); const currentTerm = terms[terms.length - 1].trim();
     if (currentTerm.length < 2) { setSuggestions([]); setShowSuggestions(false); return; }
     try {
       const res = await fetch(`http://127.0.0.1:8000/api/reading/users/search?q=${currentTerm}`, { headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` } });
-      if (res.ok) { const users = await res.json(); setSuggestions(users); setShowSuggestions(users.length > 0); }
+      if (res.ok) {
+        const users = await res.json();
+
+        // ⚡ LÓGICA DE FILTRADO DOBLE
+        const filtered = users.filter(u => {
+          const matchGrade = filterGrade === "Todos" || u.grade === filterGrade;
+          const matchSection = filterSection === "Todos" || u.section === filterSection;
+          return matchGrade && matchSection;
+        });
+
+        setSuggestions(filtered);
+        setShowSuggestions(filtered.length > 0);
+      }
     } catch (e) { }
   };
 
@@ -810,15 +834,53 @@ const ConfigModal = ({ title, onClose, onConfirm, inputs, setInputs, type, place
         </div>
 
         {isTeacher && (
-          <div className="relative mb-8">
-            <label className="text-xs font-bold text-slate-400 uppercase block mb-1.5 tracking-wider">Asignar a Estudiante</label>
-            <div className="flex items-center gap-3 border border-slate-200 p-3 rounded-xl bg-slate-50 focus-within:ring-2 ring-indigo-500 focus-within:bg-white transition">
-              <UserPlus size={18} className="text-slate-400" />
-              <input type="text" placeholder="Escribe un nombre o correo..." className="bg-transparent w-full outline-none text-sm font-medium text-slate-700 placeholder:text-slate-400" value={inputs.assignTo} onChange={handleAssignChange} autoComplete="off" />
+          <div className="relative mb-8 bg-slate-50 p-4 rounded-xl border border-slate-200">
+            <label className="text-xs font-bold text-indigo-600 uppercase block mb-3 tracking-wider flex items-center gap-2"><Users size={14} /> Asignar a Estudiante</label>
+
+            {/* FILTROS: AÑO Y SECCIÓN */}
+            <div className="flex gap-2 mb-3">
+              {/* SELECTOR DE AÑO */}
+              <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-lg p-2 w-2/3">
+                <Filter size={16} className="text-slate-400" />
+                <select className="bg-transparent text-xs font-bold text-slate-600 outline-none w-full cursor-pointer" value={filterGrade} onChange={(e) => setFilterGrade(e.target.value)}>
+                  <option value="Todos">Todos los Años</option>
+                  <option value="1er Año">1er Año</option>
+                  <option value="2do Año">2do Año</option>
+                  <option value="3er Año">3er Año</option>
+                  <option value="4to Año">4to Año</option>
+                  <option value="5to Año">5to Año</option>
+                </select>
+              </div>
+
+              {/* SELECTOR DE SECCIÓN */}
+              <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-lg p-2 w-1/3">
+                <span className="text-xs font-bold text-slate-400">Sec:</span>
+                <select className="bg-transparent text-xs font-bold text-slate-600 outline-none w-full cursor-pointer" value={filterSection} onChange={(e) => setFilterSection(e.target.value)}>
+                  <option value="Todos">Todas</option>
+                  <option value="A">A</option>
+                  <option value="B">B</option>
+                  <option value="C">C</option>
+                  <option value="D">D</option>
+                </select>
+              </div>
             </div>
+
+            <div className="flex items-center gap-3 bg-white border border-slate-200 p-3 rounded-xl focus-within:ring-2 ring-indigo-500 transition">
+              <UserPlus size={18} className="text-slate-400" />
+              <input type="text" placeholder="Escribe nombre..." className="bg-transparent w-full outline-none text-sm font-medium text-slate-700 placeholder:text-slate-400" value={inputs.assignTo} onChange={handleAssignChange} autoComplete="off" />
+            </div>
+
             {showSuggestions && (
               <div className="absolute top-full left-0 w-full bg-white border border-slate-200 rounded-xl shadow-xl mt-1 z-50 overflow-hidden max-h-40 overflow-y-auto">
-                {suggestions.map((u, i) => (<div key={i} onClick={(e) => { e.stopPropagation(); selectUser(u.email); }} className="p-3 hover:bg-indigo-50 cursor-pointer border-b border-slate-50 last:border-0"><span className="font-bold text-sm block text-slate-700">{u.name}</span><span className="text-xs text-slate-400">{u.email}</span></div>))}
+                {suggestions.map((u, i) => (
+                  <div key={i} onClick={(e) => { e.stopPropagation(); selectUser(u.email); }} className="p-3 hover:bg-indigo-50 cursor-pointer border-b border-slate-50 last:border-0 flex justify-between items-center">
+                    <div><span className="font-bold text-sm block text-slate-700">{u.name}</span><span className="text-xs text-slate-400">{u.email}</span></div>
+                    {/* VISUALIZACIÓN DE GRADO Y SECCIÓN EN LA LISTA */}
+                    <span className="text-[10px] font-bold bg-slate-100 text-slate-500 px-2 py-1 rounded">
+                      {u.grade || "S/G"} {u.section ? `- Sec. ${u.section}` : ""}
+                    </span>
+                  </div>
+                ))}
               </div>
             )}
           </div>

@@ -1,10 +1,15 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Lock, Mail, User, ArrowRight, ShieldCheck } from 'lucide-react';
+import { Lock, Mail, User, ArrowRight, ShieldCheck, GraduationCap, Users } from 'lucide-react';
 
 export default function LoginPage() {
   const navigate = useNavigate();
   const [isRegister, setIsRegister] = useState(false);
+
+  // Estados para Grado y Sección
+  const [grade, setGrade] = useState('1er Año');
+  const [section, setSection] = useState('A');
+
   const [formData, setFormData] = useState({ email: '', password: '', username: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -24,7 +29,8 @@ export default function LoginPage() {
 
       if (isRegister) {
         headers = { 'Content-Type': 'application/json' };
-        body = JSON.stringify(formData);
+        // ENVIAMOS GRADO Y SECCIÓN AL BACKEND
+        body = JSON.stringify({ ...formData, grade, section });
       } else {
         headers = { 'Content-Type': 'application/x-www-form-urlencoded' };
         const params = new URLSearchParams();
@@ -57,7 +63,6 @@ export default function LoginPage() {
     <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4 font-sans text-slate-200">
       <div className="bg-slate-900 w-full max-w-md p-8 rounded-3xl shadow-2xl border border-slate-800">
 
-        {/* ENCABEZADO */}
         <div className="text-center mb-8">
           <div className="bg-slate-800 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 text-indigo-400 shadow-lg border border-slate-700">
             <ShieldCheck size={32} />
@@ -70,16 +75,56 @@ export default function LoginPage() {
 
         <form onSubmit={handleSubmit} className="space-y-5">
           {isRegister && (
-            <div className="relative group">
-              <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-500 group-focus-within:text-indigo-400 transition-colors">
-                <User size={20} />
+            <>
+              <div className="relative group">
+                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-500 group-focus-within:text-indigo-400 transition-colors">
+                  <User size={20} />
+                </div>
+                <input
+                  type="text" placeholder="Nombre Completo" required
+                  className="w-full pl-11 pr-4 py-3.5 bg-slate-950 border border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all text-white font-medium placeholder:text-slate-600"
+                  value={formData.username} onChange={e => setFormData({ ...formData, username: e.target.value })}
+                />
               </div>
-              <input
-                type="text" placeholder="Usuario" required
-                className="w-full pl-11 pr-4 py-3.5 bg-slate-950 border border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all text-white font-medium placeholder:text-slate-600"
-                value={formData.username} onChange={e => setFormData({ ...formData, username: e.target.value })}
-              />
-            </div>
+
+              {/* FILA: GRADO Y SECCIÓN */}
+              <div className="flex gap-4">
+                {/* SELECTOR GRADO */}
+                <div className="relative group w-2/3">
+                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-500">
+                    <GraduationCap size={20} />
+                  </div>
+                  <select
+                    value={grade}
+                    onChange={(e) => setGrade(e.target.value)}
+                    className="w-full pl-11 pr-8 py-3.5 bg-slate-950 border border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all text-white font-medium appearance-none cursor-pointer hover:bg-slate-900"
+                  >
+                    <option value="1er Año">1er Año</option>
+                    <option value="2do Año">2do Año</option>
+                    <option value="3er Año">3er Año</option>
+                    <option value="4to Año">4to Año</option>
+                    <option value="5to Año">5to Año</option>
+                  </select>
+                </div>
+
+                {/* SELECTOR SECCIÓN */}
+                <div className="relative group w-1/3">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500">
+                    <Users size={20} />
+                  </div>
+                  <select
+                    value={section}
+                    onChange={(e) => setSection(e.target.value)}
+                    className="w-full pl-10 pr-4 py-3.5 bg-slate-950 border border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all text-white font-medium appearance-none cursor-pointer hover:bg-slate-900"
+                  >
+                    <option value="A">A</option>
+                    <option value="B">B</option>
+                    <option value="C">C</option>
+                    <option value="D">D</option>
+                  </select>
+                </div>
+              </div>
+            </>
           )}
 
           <div className="relative group">
