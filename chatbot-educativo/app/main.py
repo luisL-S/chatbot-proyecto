@@ -25,7 +25,12 @@ origins = [
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=[
+        "http://localhost:5173", # Para cuando trabajas en tu PC
+        "https://edubot.academiasantamariani.com", # 👈 ¡TU NUEVO DOMINIO!
+        "https://aula.academiasantamariani.com", # (Por si acaso usas 'aula')
+        "*" # Comodín para permitir todo lo demás
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
