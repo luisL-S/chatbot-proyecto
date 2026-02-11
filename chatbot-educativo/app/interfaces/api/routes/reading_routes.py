@@ -305,11 +305,30 @@ async def feedback(req: FeedbackRequest, user: dict = Depends(get_current_user),
 # --- BUSCADOR ---
 @router.get("/users/search")
 async def search_users(q: str, current_user: dict = Depends(get_current_user)):
-    if not q or len(q) < 2: return []
+    # 1. Validamos que haya texto
+    if not q or len(q) < 1: return []
+    
     try:
+        # 2. Solo docentes pueden buscar
         if not await is_teacher(current_user): return []
+
+        # 3. Buscamos por nombre o email (Aumentado límite para facilitar filtros)
         users = await db["users"].find({
-            "$or": [{"email": {"$regex": q, "$options": "i"}}, {"username": {"$regex": q, "$options": "i"}}]
-        }).limit(5).to_list(5)
-        return [{"email": u["email"], "name": u.get("username", "Usuario")} for u in users if "email" in u]
-    except: return []
+            "$or": [
+                {"email": {"$regex": q, "$options": "i"}}, 
+                {"username": {"$regex": q, "$options": "i"}}
+            ]
+        }).limit(40).to_list(40)
+
+        # 4. Devolvemos los datos (incluyendo grade y section)
+        return [{
+            "email": u["email"],
+            "name": u.get("username", "Usuario"),
+            # Usamos .get() por si son usuarios viejos
+            "grade": u.get("grade", "Sin Grado"),
+            "section": u.get("section", "Sin Sec.") 
+        } for u in users if "email" in u]
+
+    except Exception as e:
+        print(f"Error en búsqueda: {e}")
+        return []

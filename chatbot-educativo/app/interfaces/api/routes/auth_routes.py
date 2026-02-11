@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from pydantic import BaseModel
 from typing import List, Optional
+from datetime import datetime
 
 from app.infrastructure.database.mongo_connection import get_database
 
@@ -18,11 +19,14 @@ pwd_hasher = PasswordHasher()
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
 
-# --- MODELOS ---
+# --- MODELOS ACTUALIZADOS ---
 class UserCreate(BaseModel):
     email: str
     password: str
     username: str
+    # 👇 NUEVOS CAMPOS (Con valores por defecto para evitar errores)
+    grade: str = "1er Año"
+    section: str = "A"
 
 class RoleUpdate(BaseModel):
     email: str
@@ -30,27 +34,29 @@ class RoleUpdate(BaseModel):
 
 # --- DEPENDENCIA: OBTENER USUARIO ACTUAL ---
 async def get_current_user(token: str = Depends(oauth2_scheme)):
-    # Usamos TU método verify_token
     payload = jwt_handler.verify_token(token)
     if not payload:
         raise HTTPException(status_code=401, detail="Token inválido o expirado")
     return payload
 
-# --- 1. REGISTRO ---
+# --- 1. REGISTRO (MODIFICADO PARA GUARDAR GRADO Y SECCIÓN) ---
 @router.post("/register")
 async def register(user: UserCreate):
     existing_user = await db["users"].find_one({"email": user.email})
     if existing_user:
         raise HTTPException(status_code=400, detail="El correo ya está registrado")
 
-    # Usamos TU método hash
     hashed_password = pwd_hasher.hash(user.password)
     
     new_user = {
         "email": user.email,
         "username": user.username,
         "hashed_password": hashed_password,
-        "role": "student" # Por defecto
+        "role": "student", # Por defecto
+        # 👇 GUARDAMOS LOS DATOS ESCOLARES
+        "grade": user.grade,
+        "section": user.section,
+        "created_at": datetime.utcnow()
     }
     
     result = await db["users"].insert_one(new_user)
@@ -62,7 +68,6 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends()):
     # Nota: form_data.username trae el email
     user = await db["users"].find_one({"email": form_data.username})
     
-    # Usamos TU método verify
     if not user or not pwd_hasher.verify(form_data.password, user["hashed_password"]):
         raise HTTPException(status_code=401, detail="Credenciales incorrectas")
     
@@ -74,7 +79,6 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends()):
         "username": user.get("username", "Usuario")
     }
     
-    # Usamos TU método create_token
     access_token = jwt_handler.create_token(token_data)
     
     return {"access_token": access_token, "token_type": "bearer", "role": user.get("role", "student")}
@@ -85,7 +89,7 @@ async def get_all_users(current_user: dict = Depends(get_current_user)):
     if current_user.get("role") != "admin":
         raise HTTPException(status_code=403, detail="Requiere privilegios de Administrador")
     
-    cursor = db["users"].find({}, {"_id": 1, "email": 1, "username": 1, "role": 1})
+    cursor = db["users"].find({}, {"_id": 1, "email": 1, "username": 1, "role": 1, "grade": 1, "section": 1})
     users = await cursor.to_list(100)
     
     for u in users:
