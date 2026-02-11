@@ -19,21 +19,19 @@ app = FastAPI(
 )
 
 origins = [
-    "http://localhost:5173",    # La dirección de tu frontend
-    "http://127.0.0.1:5173",
+    "http://localhost:5173",                       # Tu entorno local
+    "http://127.0.0.1:5173",                       # Tu entorno local (alternativo)
+    "https://edubot.academiasantamariani.com",     # 👈 TU DOMINIO REAL (Frontend)
+    "https://backend-proyect-j2u2.onrender.com",   # Tu dominio del Backend
+    "https://aula.academiasantamariani.com"        # (Por si acaso usaste 'aula')
 ]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173", # Para cuando trabajas en tu PC
-        "https://edubot.academiasantamariani.com", # 👈 ¡TU NUEVO DOMINIO!
-        "https://aula.academiasantamariani.com", # (Por si acaso usas 'aula')
-        "*" # Comodín para permitir todo lo demás
-    ],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=origins,       # Lista específica de dominios permitidos
+    allow_credentials=True,      # Permite cookies/headers de autenticación
+    allow_methods=["*"],         # Permite GET, POST, PUT, DELETE, etc.
+    allow_headers=["*"],         # Permite todos los headers
 )
 
 # Registrar Rutas
