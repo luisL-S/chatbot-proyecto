@@ -6,7 +6,7 @@ export default function QuizDisplay({ quizData }) {
   const [showFeedback, setShowFeedback] = useState(false);
   const [score, setScore] = useState(0);
   const [finished, setFinished] = useState(false);
-  
+
   // ESTADO NUEVO: Para guardar la reflexión del profesor
   const [teacherFeedback, setTeacherFeedback] = useState("");
   const [loadingFeedback, setLoadingFeedback] = useState(false);
@@ -26,11 +26,11 @@ export default function QuizDisplay({ quizData }) {
     setLoadingFeedback(true);
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('http://127.0.0.1:8000/api/reading/feedback-analysis', {
+      const response = await fetch('https://backend-proyect-j2u2.onrender.com/api/reading/feedback-analysis', {
         method: 'POST',
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}` 
+          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
           score: score,
@@ -38,7 +38,7 @@ export default function QuizDisplay({ quizData }) {
           topic: questions[0].question // Usamos la primera pregunta como contexto del tema
         })
       });
-      
+
       const data = await response.json();
       setTeacherFeedback(data.feedback);
     } catch (error) {
@@ -53,7 +53,7 @@ export default function QuizDisplay({ quizData }) {
     setSelectedOption(option);
     setShowFeedback(true);
 
-    const correctLetter = currentQuestion.answer.charAt(0).toUpperCase(); 
+    const correctLetter = currentQuestion.answer.charAt(0).toUpperCase();
     const selectedLetter = option.charAt(0).toUpperCase();
 
     if (selectedLetter === correctLetter) {
@@ -95,7 +95,7 @@ export default function QuizDisplay({ quizData }) {
           <h4 className="font-bold text-blue-800 mb-2 flex items-center gap-2">
             👨‍🏫 Análisis del Docente IA:
           </h4>
-          
+
           {loadingFeedback ? (
             <div className="flex items-center gap-2 text-blue-600 animate-pulse">
               <span>✍️ Redactando tu retroalimentación personalizada...</span>
@@ -107,7 +107,7 @@ export default function QuizDisplay({ quizData }) {
           )}
         </div>
 
-        <button 
+        <button
           onClick={() => window.location.reload()} // O cualquier acción para reiniciar
           className="mt-8 px-6 py-3 bg-gray-900 text-white rounded-xl hover:bg-gray-800 transition font-bold shadow-md"
         >
@@ -122,7 +122,7 @@ export default function QuizDisplay({ quizData }) {
     <div className="bg-white rounded-xl shadow-md border border-gray-100 overflow-hidden max-w-2xl w-full my-4 mx-auto">
       {/* Barra de progreso */}
       <div className="w-full bg-gray-100 h-2">
-        <div 
+        <div
           className="bg-purple-600 h-2 transition-all duration-500 ease-out"
           style={{ width: `${((currentIndex + 1) / questions.length) * 100}%` }}
         ></div>
@@ -143,9 +143,9 @@ export default function QuizDisplay({ quizData }) {
           {currentQuestion.options.map((option, idx) => {
             const isSelected = selectedOption === option;
             const isCorrect = option.startsWith(currentQuestion.answer.charAt(0));
-            
+
             let btnClass = "w-full text-left p-4 rounded-xl border-2 transition-all duration-200 flex items-center group ";
-            
+
             if (showFeedback) {
               if (isCorrect) btnClass += "border-green-500 bg-green-50 text-green-800";
               else if (isSelected) btnClass += "border-red-500 bg-red-50 text-red-800";
@@ -161,11 +161,10 @@ export default function QuizDisplay({ quizData }) {
                 disabled={showFeedback}
                 className={btnClass}
               >
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center mr-4 text-sm font-bold border transition-colors ${
-                  showFeedback && isCorrect ? "bg-green-500 text-white border-green-500" : 
-                  showFeedback && isSelected ? "bg-red-500 text-white border-red-500" :
-                  "bg-white text-gray-400 border-gray-200 group-hover:border-purple-400 group-hover:text-purple-600"
-                }`}>
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center mr-4 text-sm font-bold border transition-colors ${showFeedback && isCorrect ? "bg-green-500 text-white border-green-500" :
+                    showFeedback && isSelected ? "bg-red-500 text-white border-red-500" :
+                      "bg-white text-gray-400 border-gray-200 group-hover:border-purple-400 group-hover:text-purple-600"
+                  }`}>
                   {String.fromCharCode(65 + idx)}
                 </div>
                 <span className="font-medium">{option.substring(3)}</span>

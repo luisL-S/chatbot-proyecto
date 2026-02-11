@@ -2,7 +2,7 @@ import axios from 'axios';
 
 // Asegúrate que esta es la URL base correcta. 
 // Si tu backend corre en el puerto 8000, esto está bien.
-const API_URL = 'http://localhost:8000'; 
+const API_URL = 'http://https://backend-proyect-j2u2.onrender.com'; 
 
 const api = axios.create({
   baseURL: API_URL,

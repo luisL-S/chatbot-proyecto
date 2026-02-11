@@ -100,7 +100,7 @@ export default function ChatPage() {
   // --- SEGURIDAD ---
   const checkUserRole = async () => {
     try {
-      const res = await fetch('http://127.0.0.1:8000/api/reading/user/role', {
+      const res = await fetch('https://backend-proyect-j2u2.onrender.com/api/reading/user/role', {
         headers: { 'Authorization': `Bearer ${getToken()}` }
       });
       if (res.ok) {
@@ -116,7 +116,7 @@ export default function ChatPage() {
 
   const loadHistoryList = async () => {
     try {
-      const res = await fetch('http://127.0.0.1:8000/api/reading/history', { headers: { 'Authorization': `Bearer ${getToken()}` } });
+      const res = await fetch('https://backend-proyect-j2u2.onrender.com/api/reading/history', { headers: { 'Authorization': `Bearer ${getToken()}` } });
       if (res.ok) setHistory(await res.json());
     } catch (e) { console.error(e); }
   };
@@ -124,7 +124,7 @@ export default function ChatPage() {
   const loadTeacherDashboard = async () => {
     setLoading(true);
     try {
-      const res = await fetch('http://127.0.0.1:8000/api/reading/teacher/dashboard', { headers: { 'Authorization': `Bearer ${getToken()}` } });
+      const res = await fetch('https://backend-proyect-j2u2.onrender.com/api/reading/teacher/dashboard', { headers: { 'Authorization': `Bearer ${getToken()}` } });
       if (res.ok) {
         const data = await res.json();
         const processedData = data.map(d => ({
@@ -144,7 +144,7 @@ export default function ChatPage() {
   const loadHistoryItem = async (id) => {
     setLoading(true); setMobileMenu(false);
     try {
-      const res = await fetch(`http://127.0.0.1:8000/api/reading/history/${id}`, { headers: { 'Authorization': `Bearer ${getToken()}` } });
+      const res = await fetch(`https://backend-proyect-j2u2.onrender.com/api/reading/history/${id}`, { headers: { 'Authorization': `Bearer ${getToken()}` } });
       if (!res.ok) throw new Error("Error cargando");
       const data = await res.json();
 
@@ -168,7 +168,7 @@ export default function ChatPage() {
   const confirmDelete = async () => {
     if (!deleteTarget) return;
     try {
-      await fetch(`http://127.0.0.1:8000/api/reading/history/${deleteTarget}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${getToken()}` } });
+      await fetch(`https://backend-proyect-j2u2.onrender.com/api/reading/history/${deleteTarget}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${getToken()}` } });
       loadHistoryList();
       setDeleteTarget(null);
     } catch (e) { setErrorMsg("Error al borrar"); }
@@ -193,7 +193,7 @@ export default function ChatPage() {
       };
 
       if (type === 'paste') {
-        url = 'http://127.0.0.1:8000/api/reading/analyze-text';
+        url = 'https://backend-proyect-j2u2.onrender.com/api/reading/analyze-text';
         headers['Content-Type'] = 'application/json';
         body = JSON.stringify({
           text: inputs.text,
@@ -203,7 +203,7 @@ export default function ChatPage() {
         });
       }
       else if (type === 'topic') {
-        url = 'http://127.0.0.1:8000/api/reading/create-lesson';
+        url = 'https://backend-proyect-j2u2.onrender.com/api/reading/create-lesson';
         headers['Content-Type'] = 'application/json';
         body = JSON.stringify({
           topic: inputs.topic,
@@ -213,7 +213,7 @@ export default function ChatPage() {
         });
       }
       else if (type === 'upload') {
-        url = 'http://127.0.0.1:8000/api/reading/upload';
+        url = 'https://backend-proyect-j2u2.onrender.com/api/reading/upload';
         const formData = new FormData();
         formData.append("file", selectedFile);
         formData.append("num_questions", payload.num_questions);
@@ -252,7 +252,7 @@ export default function ChatPage() {
   const finishQuiz = async (finalScore) => {
     setView('score'); setFeedback("Guardando...");
     try {
-      const res = await fetch('http://127.0.0.1:8000/api/reading/feedback-analysis', {
+      const res = await fetch('https://backend-proyect-j2u2.onrender.com/api/reading/feedback-analysis', {
         method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getToken()}` },
         body: JSON.stringify({ score: finalScore, total: quizData.length, topic: currentTopic, lesson_id: currentLessonId })
       });
@@ -303,7 +303,7 @@ export default function ChatPage() {
     setTutorLoading(true);
 
     try {
-      const res = await fetch('http://127.0.0.1:8000/api/reading/ask-tutor', {
+      const res = await fetch('https://backend-proyect-j2u2.onrender.com/api/reading/ask-tutor', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getToken()}` },
         body: JSON.stringify({ question: userQ, context: lessonContent })
@@ -654,7 +654,7 @@ const AdminPanel = ({ token, resetApp }) => {
   } catch (e) { }
 
   useEffect(() => {
-    fetch('http://127.0.0.1:8000/api/auth/admin/users', { headers: { 'Authorization': `Bearer ${token}` } })
+    fetch('https://backend-proyect-j2u2.onrender.com/api/auth/admin/users', { headers: { 'Authorization': `Bearer ${token}` } })
       .then(res => res.json())
       .then(data => setUsers(Array.isArray(data) ? data : []))
       .catch(err => console.error(err));
@@ -667,14 +667,14 @@ const AdminPanel = ({ token, resetApp }) => {
   const executeChangeRole = async () => {
     if (!pendingRoleChange) return;
     try {
-      const res = await fetch('http://127.0.0.1:8000/api/auth/admin/change-role', {
+      const res = await fetch('https://backend-proyect-j2u2.onrender.com/api/auth/admin/change-role', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({ email: pendingRoleChange.email, new_role: pendingRoleChange.newRole })
       });
       if (res.ok) {
         alert("✅ Rol actualizado correctamente");
-        const listRes = await fetch('http://127.0.0.1:8000/api/auth/admin/users', { headers: { 'Authorization': `Bearer ${token}` } });
+        const listRes = await fetch('https://backend-proyect-j2u2.onrender.com/api/auth/admin/users', { headers: { 'Authorization': `Bearer ${token}` } });
         setUsers(await listRes.json());
       }
     } catch (e) { alert("Error"); }
@@ -776,7 +776,7 @@ const ConfigModal = ({ title, onClose, onConfirm, inputs, setInputs, type, place
     const terms = text.split(','); const currentTerm = terms[terms.length - 1].trim();
     if (currentTerm.length < 2) { setSuggestions([]); setShowSuggestions(false); return; }
     try {
-      const res = await fetch(`http://127.0.0.1:8000/api/reading/users/search?q=${currentTerm}`, { headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` } });
+      const res = await fetch(`https://backend-proyect-j2u2.onrender.com/api/reading/users/search?q=${currentTerm}`, { headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` } });
       if (res.ok) {
         const users = await res.json();
 

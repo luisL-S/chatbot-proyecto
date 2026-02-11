@@ -1,5 +1,5 @@
 // URL base de tu Backend
-const API_URL = 'http://127.0.0.1:8000/api';
+const API_URL = 'https://backend-proyect-j2u2.onrender.com/api';
 
 // --- FUNCIÓN 1: LOGIN (Con FormData para FastAPI) ---
 export const login = async (username, password) => {

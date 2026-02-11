@@ -1,4 +1,4 @@
-const API_URL = 'http://127.0.0.1:8000/api';
+const API_URL = 'https://backend-proyect-j2u2.onrender.com/api';
 
 // Aceptamos un segundo parámetro: sessionId
 export const uploadFileForQuiz = async (file, sessionId = null) => {

@@ -20,8 +20,8 @@ export default function LoginPage() {
     setLoading(true);
 
     const url = isRegister
-      ? 'http://127.0.0.1:8000/api/auth/register'
-      : 'http://127.0.0.1:8000/api/auth/login';
+      ? 'https://backend-proyect-j2u2.onrender.com/api/auth/register'
+      : 'https://backend-proyect-j2u2.onrender.com/api/auth/login';
 
     try {
       let body;
