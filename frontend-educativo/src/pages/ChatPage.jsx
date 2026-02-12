@@ -42,7 +42,6 @@ export default function ChatPage() {
   const [mobileMenu, setMobileMenu] = useState(false);
 
   const [isAdmin, setIsAdmin] = useState(false);
-  const [usersList, setUsersList] = useState([]);
 
   // --- ESTADO PARA MODAL DE BORRAR ---
   const [deleteTarget, setDeleteTarget] = useState(null);
@@ -123,6 +122,7 @@ export default function ChatPage() {
 
   const loadTeacherDashboard = async () => {
     setLoading(true);
+    setMobileMenu(false); // ✅ SOLUCIÓN 1: Cerrar menú al hacer clic
     try {
       const res = await fetch('https://backend-proyect-j2u2.onrender.com/api/reading/teacher/dashboard', { headers: { 'Authorization': `Bearer ${getToken()}` } });
       if (res.ok) {
@@ -142,7 +142,7 @@ export default function ChatPage() {
   };
 
   const loadHistoryItem = async (id) => {
-    setLoading(true); setMobileMenu(false);
+    setLoading(true); setMobileMenu(false); // ✅ También cerramos aquí al elegir historial
     try {
       const res = await fetch(`https://backend-proyect-j2u2.onrender.com/api/reading/history/${id}`, { headers: { 'Authorization': `Bearer ${getToken()}` } });
       if (!res.ok) throw new Error("Error cargando");
@@ -261,7 +261,7 @@ export default function ChatPage() {
     } catch (e) { setFeedback("Error guardando nota."); }
   };
 
-  const resetApp = () => { setView('menu'); setScore(0); setCurrentQ(0); setLessonContent(""); setQuizData([]); resetQuestionState(); loadHistoryList(); };
+  const resetApp = () => { setView('menu'); setScore(0); setCurrentQ(0); setLessonContent(""); setQuizData([]); resetQuestionState(); loadHistoryList(); setMobileMenu(false); };
 
   // --- AUDIO ---
   const handleSpeak = () => {
@@ -437,14 +437,14 @@ export default function ChatPage() {
                   <p className="text-slate-500 mt-1">Monitorea el progreso de tus estudiantes.</p>
                 </div>
                 <div className="flex gap-3">
-                  <button onClick={downloadPDF} className="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2.5 rounded-xl font-bold flex items-center gap-2 shadow-lg shadow-emerald-100 transition"><Download size={18} /> PDF</button>
+                  <button onClick={downloadPDF} className="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2.5 rounded-xl font-bold flex items-center gap-2 shadow-lg shadow-emerald-100 transition"><Download size={18} /> <span className="hidden md:inline">PDF</span></button>
                   <button onClick={resetApp} className="bg-white border border-slate-200 hover:border-slate-300 text-slate-600 px-5 py-2.5 rounded-xl font-bold transition">Volver</button>
                 </div>
               </div>
 
               {dashboardData.length > 0 && (
-                <div className="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm mb-8 h-96 w-full">
-                  <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-6">Rendimiento General de la Clase</h3>
+                <div className="bg-white p-4 md:p-8 rounded-3xl border border-slate-200 shadow-sm mb-8 h-72 md:h-96 w-full">
+                  <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-6">Rendimiento General</h3>
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={dashboardData}>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
@@ -459,32 +459,56 @@ export default function ChatPage() {
                 </div>
               )}
 
-              <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
+              {/* ✅ VISTA HÍBRIDA: TABLA EN PC, TARJETAS EN MÓVIL */}
+              <div className="bg-white md:rounded-3xl md:shadow-sm md:border border-slate-200 overflow-hidden bg-transparent md:bg-white">
                 {dashboardData.length === 0 ? (
-                  <div className="p-16 text-center text-slate-400">No hay datos registrados aún.</div>
+                  <div className="p-16 text-center text-slate-400 bg-white rounded-3xl border border-slate-200">No hay datos registrados aún.</div>
                 ) : (
-                  <table className="w-full text-left">
-                    <thead className="bg-slate-50 border-b border-slate-100">
-                      <tr>
-                        <th className="p-5 text-xs font-bold text-slate-500 uppercase">Alumno</th>
-                        <th className="p-5 text-xs font-bold text-slate-500 uppercase">Lección</th>
-                        <th className="p-5 text-xs font-bold text-slate-500 uppercase">Nota</th>
-                        <th className="p-5 text-xs font-bold text-slate-500 uppercase">Estado</th>
-                        <th className="p-5 text-xs font-bold text-slate-500 uppercase">Fecha</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-50">
-                      {dashboardData.map((row, i) => (
-                        <tr key={i} className="hover:bg-slate-50/50 transition">
-                          <td className="p-5 font-bold text-slate-700">{row.student}</td>
-                          <td className="p-5 text-slate-600 truncate max-w-xs">{row.topic}</td>
-                          <td className="p-5">{row.score !== "-" ? <span className={`px-3 py-1 rounded-full text-xs font-bold ${row.score >= row.total / 2 ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>{row.score} / {row.total}</span> : <span className="text-slate-300 font-bold">-</span>}</td>
-                          <td className="p-5">{row.status === 'completed' ? <span className="text-emerald-600 flex items-center gap-1.5 text-xs font-bold"><CheckCircle size={16} /> Completado</span> : <span className="text-amber-500 flex items-center gap-1.5 text-xs font-bold"><RotateCcw size={16} /> Pendiente</span>}</td>
-                          <td className="p-5 text-xs text-slate-400 font-medium">{new Date(row.date).toLocaleDateString()}</td>
+                  <>
+                    {/* VISTA ESCRITORIO (TABLA) */}
+                    <table className="hidden md:table w-full text-left">
+                      <thead className="bg-slate-50 border-b border-slate-100">
+                        <tr>
+                          <th className="p-5 text-xs font-bold text-slate-500 uppercase">Alumno</th>
+                          <th className="p-5 text-xs font-bold text-slate-500 uppercase">Lección</th>
+                          <th className="p-5 text-xs font-bold text-slate-500 uppercase">Nota</th>
+                          <th className="p-5 text-xs font-bold text-slate-500 uppercase">Estado</th>
+                          <th className="p-5 text-xs font-bold text-slate-500 uppercase">Fecha</th>
                         </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-50">
+                        {dashboardData.map((row, i) => (
+                          <tr key={i} className="hover:bg-slate-50/50 transition">
+                            <td className="p-5 font-bold text-slate-700">{row.student}</td>
+                            <td className="p-5 text-slate-600 truncate max-w-xs">{row.topic}</td>
+                            <td className="p-5">{row.score !== "-" ? <span className={`px-3 py-1 rounded-full text-xs font-bold ${row.score >= row.total / 2 ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>{row.score} / {row.total}</span> : <span className="text-slate-300 font-bold">-</span>}</td>
+                            <td className="p-5">{row.status === 'completed' ? <span className="text-emerald-600 flex items-center gap-1.5 text-xs font-bold"><CheckCircle size={16} /> Completado</span> : <span className="text-amber-500 flex items-center gap-1.5 text-xs font-bold"><RotateCcw size={16} /> Pendiente</span>}</td>
+                            <td className="p-5 text-xs text-slate-400 font-medium">{new Date(row.date).toLocaleDateString()}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+
+                    {/* VISTA MÓVIL (TARJETAS) */}
+                    <div className="md:hidden space-y-3">
+                      {dashboardData.map((row, i) => (
+                        <div key={i} className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+                          <div className="flex justify-between items-start mb-2">
+                            <span className="font-bold text-slate-800">{row.student}</span>
+                            <span className="text-xs text-slate-400 bg-slate-50 px-2 py-1 rounded-lg">{new Date(row.date).toLocaleDateString()}</span>
+                          </div>
+                          <div className="text-sm text-slate-600 font-medium mb-4 line-clamp-2">{row.topic}</div>
+                          <div className="flex justify-between items-center border-t border-slate-50 pt-3">
+                            {row.score !== "-" ?
+                              <span className={`px-3 py-1 rounded-full text-xs font-bold ${row.score >= row.total / 2 ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>Nota: {row.score} / {row.total}</span>
+                              : <span className="text-slate-400 text-xs font-bold">Sin Nota</span>
+                            }
+                            {row.status === 'completed' ? <span className="text-emerald-600 flex items-center gap-1 text-xs font-bold"><CheckCircle size={14} /> Listo</span> : <span className="text-amber-500 flex items-center gap-1 text-xs font-bold"><RotateCcw size={14} /> Pendiente</span>}
+                          </div>
+                        </div>
                       ))}
-                    </tbody>
-                  </table>
+                    </div>
+                  </>
                 )}
               </div>
             </div>
@@ -501,10 +525,10 @@ export default function ChatPage() {
                   <div className="flex gap-3 shrink-0">
                     <button onClick={handleSpeak} className={`px-5 py-3 rounded-xl font-bold flex items-center gap-2 transition border ${isSpeaking ? "bg-rose-50 text-rose-600 border-rose-200 hover:bg-rose-100" : "bg-white text-slate-600 border-slate-200 hover:border-slate-300 hover:bg-slate-50"}`}>
                       {isSpeaking ? <StopCircle size={20} /> : <Volume2 size={20} />}
-                      {isSpeaking ? "Detener" : "Escuchar"}
+                      <span className="hidden md:inline">{isSpeaking ? "Detener" : "Escuchar"}</span>
                     </button>
                     <button onClick={() => { window.speechSynthesis.cancel(); setIsSpeaking(false); setView('quiz'); }} className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 transition shadow-lg shadow-indigo-200">
-                      <span>Ir al Examen</span> <ArrowRight size={20} />
+                      <span className="hidden md:inline">Ir al Examen</span> <ArrowRight size={20} />
                     </button>
                   </div>
                 </div>
@@ -629,7 +653,7 @@ const OptionCard = ({ icon, title, onClick, iconColor, bgColor, children }) => (
   </div>
 );
 
-// Panel de Administración (CON TRADUCCIÓN DE ROLES)
+// Panel de Administración (CON TRADUCCIÓN DE ROLES Y RESPONSIVE)
 const AdminPanel = ({ token, resetApp }) => {
   const [users, setUsers] = useState([]);
   const [pendingRoleChange, setPendingRoleChange] = useState(null);
@@ -641,7 +665,6 @@ const AdminPanel = ({ token, resetApp }) => {
     admin: "Administrador"
   };
 
-  // Función segura para obtener el nombre del rol
   const getRoleName = (role) => {
     if (!role) return "";
     return roleMap[role.toLowerCase()] || role;
@@ -692,7 +715,7 @@ const AdminPanel = ({ token, resetApp }) => {
 
   return (
     <>
-      <div className="max-w-6xl mx-auto bg-white p-10 rounded-3xl shadow-sm border border-slate-200 animate-in slide-in-from-bottom-5">
+      <div className="max-w-6xl mx-auto bg-white p-6 md:p-10 rounded-3xl shadow-sm border border-slate-200 animate-in slide-in-from-bottom-5">
         <div className="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
           <div>
             <h2 className="text-2xl font-bold flex items-center gap-3 text-slate-800">
@@ -710,8 +733,11 @@ const AdminPanel = ({ token, resetApp }) => {
           </div>
         </div>
 
-        <div className="overflow-hidden rounded-2xl border border-slate-200 shadow-sm">
-          <table className="w-full text-left">
+        {/* ✅ VISTA HÍBRIDA: TABLA EN PC, TARJETAS EN MÓVIL */}
+        <div className="md:rounded-2xl md:border border-slate-200 overflow-hidden bg-transparent md:bg-white">
+
+          {/* VISTA ESCRITORIO (TABLA) */}
+          <table className="hidden md:table w-full text-left">
             <thead className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wider">
               <tr><th className="p-5 font-bold">Usuario</th><th className="p-5 font-bold">Email</th><th className="p-5 font-bold">Rol Actual</th><th className="p-5 font-bold text-right">Acciones</th></tr>
             </thead>
@@ -739,10 +765,36 @@ const AdminPanel = ({ token, resetApp }) => {
               ))}
             </tbody>
           </table>
+
+          {/* VISTA MÓVIL (TARJETAS) */}
+          <div className="md:hidden space-y-3">
+            {users.map(u => (
+              <div key={u.id} className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+                <div className="flex justify-between items-start mb-2">
+                  <div>
+                    <span className="font-bold text-slate-800 block text-lg">{u.username}</span>
+                    <span className="text-xs text-slate-500 block">{u.email}</span>
+                  </div>
+                  <span className={`px-2 py-1 rounded text-[10px] font-bold border uppercase ${u.role === 'admin' ? 'bg-slate-900 text-white border-slate-900' : u.role === 'teacher' ? 'bg-indigo-50 text-indigo-700 border-indigo-100' : 'bg-white text-slate-600 border-slate-200'}`}>
+                    {getRoleName(u.role)}
+                  </span>
+                </div>
+
+                {u.email !== currentUserEmail && (
+                  <div className="flex gap-2 mt-4 border-t border-slate-50 pt-3 justify-end">
+                    <button onClick={() => initiateChangeRole(u.email, 'student')} disabled={u.role === 'student'} className={`flex-1 py-2 rounded-lg border text-sm font-bold flex items-center justify-center gap-1 transition ${u.role === 'student' ? 'bg-slate-100 text-slate-400 border-transparent' : 'bg-white border-slate-200 text-slate-600 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200'}`}><User size={14} /> Alumno</button>
+                    <button onClick={() => initiateChangeRole(u.email, 'teacher')} disabled={u.role === 'teacher'} className={`flex-1 py-2 rounded-lg border text-sm font-bold flex items-center justify-center gap-1 transition ${u.role === 'teacher' ? 'bg-slate-100 text-slate-400 border-transparent' : 'bg-white border-slate-200 text-slate-600 hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-200'}`}><GraduationCap size={14} /> Docente</button>
+                    <button onClick={() => initiateChangeRole(u.email, 'admin')} disabled={u.role === 'admin'} className={`flex-1 py-2 rounded-lg border text-sm font-bold flex items-center justify-center gap-1 transition ${u.role === 'admin' ? 'bg-slate-100 text-slate-400 border-transparent' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-100 hover:text-slate-900 hover:border-slate-300'}`}><Shield size={14} /> Admin</button>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+
         </div>
       </div>
 
-      {/* --- MODAL CONFIRMAR CAMBIO ROL (TRADUCIDO) --- */}
+      {/* --- MODAL CONFIRMAR CAMBIO ROL --- */}
       {pendingRoleChange && (
         <div className="fixed inset-0 bg-slate-900/50 z-[100] flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in">
           <div className="bg-white w-full max-w-sm rounded-3xl p-8 shadow-2xl relative text-center">
@@ -895,4 +947,4 @@ const ConfigModal = ({ title, onClose, onConfirm, inputs, setInputs, type, place
       </div>
     </div>
   );
-};
+};  

@@ -1,10 +1,14 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Lock, Mail, User, ArrowRight, ShieldCheck, GraduationCap, Users } from 'lucide-react';
+// 1. Agregamos los iconos Eye y EyeOff
+import { Lock, Mail, User, ArrowRight, ShieldCheck, GraduationCap, Users, Eye, EyeOff } from 'lucide-react';
 
 export default function LoginPage() {
   const navigate = useNavigate();
   const [isRegister, setIsRegister] = useState(false);
+
+  // 2. Estado para controlar la visibilidad de la contraseña
+  const [showPassword, setShowPassword] = useState(false);
 
   // Estados para Grado y Sección
   const [grade, setGrade] = useState('1er Año');
@@ -29,7 +33,6 @@ export default function LoginPage() {
 
       if (isRegister) {
         headers = { 'Content-Type': 'application/json' };
-        // ENVIAMOS GRADO Y SECCIÓN AL BACKEND
         body = JSON.stringify({ ...formData, grade, section });
       } else {
         headers = { 'Content-Type': 'application/x-www-form-urlencoded' };
@@ -89,7 +92,6 @@ export default function LoginPage() {
 
               {/* FILA: GRADO Y SECCIÓN */}
               <div className="flex gap-4">
-                {/* SELECTOR GRADO */}
                 <div className="relative group w-2/3">
                   <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-500">
                     <GraduationCap size={20} />
@@ -107,7 +109,6 @@ export default function LoginPage() {
                   </select>
                 </div>
 
-                {/* SELECTOR SECCIÓN */}
                 <div className="relative group w-1/3">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500">
                     <Users size={20} />
@@ -138,15 +139,29 @@ export default function LoginPage() {
             />
           </div>
 
+          {/* 3. CAMPO CONTRASEÑA MODIFICADO */}
           <div className="relative group">
             <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-500 group-focus-within:text-indigo-400 transition-colors">
               <Lock size={20} />
             </div>
             <input
-              type="password" placeholder="Contraseña" required
-              className="w-full pl-11 pr-4 py-3.5 bg-slate-950 border border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all text-white font-medium placeholder:text-slate-600"
-              value={formData.password} onChange={e => setFormData({ ...formData, password: e.target.value })}
+              // Alternamos entre 'text' y 'password'
+              type={showPassword ? "text" : "password"}
+              placeholder="Contraseña"
+              required
+              // Aumentamos el padding derecho (pr-12) para que el texto no choque con el ojo
+              className="w-full pl-11 pr-12 py-3.5 bg-slate-950 border border-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all text-white font-medium placeholder:text-slate-600"
+              value={formData.password}
+              onChange={e => setFormData({ ...formData, password: e.target.value })}
             />
+            {/* BOTÓN PARA ALTERNAR VISIBILIDAD */}
+            <button
+              type="button" // Importante para que no envíe el formulario al hacer click
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-500 hover:text-indigo-400 transition-colors cursor-pointer outline-none"
+            >
+              {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+            </button>
           </div>
 
           <button disabled={loading} className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3.5 rounded-xl transition-all shadow-lg shadow-indigo-900/20 flex justify-center items-center gap-2 active:scale-95 border border-indigo-500">
