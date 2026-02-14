@@ -59,7 +59,8 @@ class GeminiClient:
         1. Adaptado a jóvenes (vocabulario claro, no rebuscado).
         2. Enfoque actual (relacionado con la realidad, valores o tecnología si aplica).
         3. Estructura: Título atractivo, Introducción, 3 Puntos Clave, Conclusión reflexiva.
-        4. Extensión: Máximo 350 palabras.
+        4. no repitas las opciones de respuesta entre preguntas, cada pregunta debe tener opciones únicas.
+        5. Extensión: Máximo 350 palabras.
         
         Usa formato Markdown limpio.
         """
@@ -82,12 +83,14 @@ class GeminiClient:
         CRITERIOS PEDAGÓGICOS OBLIGATORIOS:
         - Preguntas de Nivel Literal, Inferencial y Crítico (distribuidas).
         - NO USES PREGUNTAS GENÉRICAS. Deben ser específicas de este texto.
+        -no repitas las opciones de respuesta entre preguntas, cada pregunta debe tener opciones únicas.
         
         !!! IMPORTANTE SOBRE EL FEEDBACK ("explanation") !!!:
         - La explicación NO puede ser genérica como "se deduce del texto".
         - Debe explicar explícitamente POR QUÉ esa opción es la correcta citando una pista del texto o la lógica usada.
         - Ejemplo CORRECTO: "Es correcta porque en el segundo párrafo el autor menciona que los árboles mueren de pie, lo que simboliza resistencia."
-        
+        -no se deben de repetir las respuestas, cada pregunta debe ser única y no genérica. todo respectivo al texto 
+
         FORMATO JSON ARRAY OBLIGATORIO:
         [
             {{
@@ -120,6 +123,8 @@ class GeminiClient:
         - Si hay texto: Preguntas Literales, Inferenciales y Críticas.
         - Si es gráfico: Análisis de datos visuales.
         - EXPLICACIÓN: Detalla por qué la respuesta es correcta en el campo "explanation".
+        -Tambien aquí, la explicación NO puede ser genérica. Debe citar elementos específicos de la imagen (colores, formas, datos) o la lógica visual que justifica la respuesta correcta.
+        -no se deben de repetir las respuestas, cada pregunta debe ser única y no genérica. Deben ser específicas de la imagen.
 
         FORMATO JSON ARRAY OBLIGATORIO:
         [
