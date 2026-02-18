@@ -129,24 +129,6 @@ async def verify_teacher_code(request: PromotionRequest, current_user: dict = De
         return {"message": "Ya tienes este rol o hubo un error."}
     return {"message": "✅ Credenciales validadas. Bienvenido al Claustro Docente."}
 
-# ---ADMIN: BORRAR USUARIO ---
-@router.delete("/admin/delete-user")
-async def delete_user(email: str, current_user: dict = Depends(get_current_user)):
-    # 1. Verificar si es Administrador
-    if current_user.get("role") != "admin":
-        raise HTTPException(status_code=403, detail="Requiere privilegios de Administrador")
-    
-    # 2. Evitar que el admin se borre a sí mismo
-    if email == current_user.get("email"):
-        raise HTTPException(status_code=400, detail="No puedes borrar tu propia cuenta de administrador.")
-
-    # 3. Ejecutar borrado
-    result = await db["users"].delete_one({"email": email})
-    
-    if result.deleted_count == 0:
-        raise HTTPException(status_code=404, detail="Usuario no encontrado")
-        
-    return {"message": f"Usuario {email} eliminado correctamente"}
 
 # --- DASHBOARD DOCENTE ---
 @router.get("/teacher/dashboard")
