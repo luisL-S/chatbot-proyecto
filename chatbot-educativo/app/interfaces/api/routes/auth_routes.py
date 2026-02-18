@@ -1,3 +1,4 @@
+import re
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from pydantic import BaseModel
@@ -39,28 +40,58 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
         raise HTTPException(status_code=401, detail="Token inválido o expirado")
     return payload
 
-# --- 1. REGISTRO (MODIFICADO PARA GUARDAR GRADO Y SECCIÓN) ---
+# --- 1. REGISTRO (CON VALIDACIÓN ROBUSTA DE DUPLICADOS) ---
 @router.post("/register")
 async def register(user: UserCreate):
-    existing_user = await db["users"].find_one({"email": user.email})
-    if existing_user:
-        raise HTTPException(status_code=400, detail="El correo ya está registrado")
+    # 1. Limpieza de datos (Quitamos espacios al inicio y final)
+    email_clean = user.email.strip().lower() # Convertimos email a minúsculas
+    name_clean = user.username.strip()       # Quitamos espacios al nombre
 
+    print(f"--- INTENTO DE REGISTRO ---")
+    print(f"Buscando correo: {email_clean}")
+    print(f"Buscando nombre: {name_clean}")
+
+    # 2. Validar si el CORREO ya existe
+    existing_email = await db["users"].find_one({"email": email_clean})
+    if existing_email:
+        print("❌ Error: Correo duplicado encontrado.")
+        raise HTTPException(status_code=400, detail="El correo ya está registrado.")
+
+    # 3. Validar si el NOMBRE ya existe (Insensible a mayúsculas/minúsculas)
+    # Usamos regex con 're.escape' por si el nombre tiene símbolos raros
+    regex_pattern = f"^{re.escape(name_clean)}$"
+    
+    existing_username = await db["users"].find_one({
+        "username": {"$regex": regex_pattern, "$options": "i"}
+    })
+    
+    if existing_username:
+        print(f"❌ Error: Usuario duplicado encontrado: {existing_username.get('username')}")
+        raise HTTPException(
+            status_code=400, 
+            detail=f"El nombre '{name_clean}' ya existe. Por favor usa tu segundo nombre o apellido."
+        )
+
+    # Si pasa las validaciones, creamos el usuario
     hashed_password = pwd_hasher.hash(user.password)
     
     new_user = {
-        "email": user.email,
-        "username": user.username,
+        "email": email_clean,
+        "username": name_clean, # Guardamos el nombre limpio
         "hashed_password": hashed_password,
-        "role": "student", # Por defecto
-        # 👇 GUARDAMOS LOS DATOS ESCOLARES
+        "role": "student", 
         "grade": user.grade,
         "section": user.section,
         "created_at": datetime.utcnow()
     }
     
     result = await db["users"].insert_one(new_user)
-    return {"message": "Usuario creado exitosamente", "id": str(result.inserted_id)}
+    print("✅ Usuario creado exitosamente.")
+    
+    return {
+        "message": "Usuario creado exitosamente", 
+        "id": str(result.inserted_id)
+    }
 
 # --- 2. LOGIN ---
 @router.post("/login")
