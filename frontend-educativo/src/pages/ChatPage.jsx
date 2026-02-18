@@ -6,8 +6,10 @@ import ReactMarkdown from 'react-markdown';
 import {
   Upload, FileText, BookOpen, Menu, X,
   GraduationCap, LogOut, CheckCircle, RotateCcw,
-  AlertCircle, Trash2, ArrowRight, UserPlus, FileQuestion,
-  LayoutDashboard, User, Users, Shield, Lock, Volume2, StopCircle, Download, MessageCircle, Send, AlertTriangle, Filter
+  AlertCircle, ArrowRight, UserPlus, FileQuestion,
+  LayoutDashboard, User, Users, Shield, Trash2, Volume2,
+  StopCircle, Download, MessageCircle, Send, AlertTriangle, Filter,
+  ArrowLeft, Loader2
 } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 
@@ -31,6 +33,9 @@ const CustomTooltip = ({ active, payload, label }) => {
   return null;
 };
 
+// =========================================
+// COMPONENTE PRINCIPAL: CHATPAGE
+// =========================================
 export default function ChatPage() {
   const navigate = useNavigate();
   const fileInputRef = useRef(null);
@@ -43,7 +48,7 @@ export default function ChatPage() {
 
   const [isAdmin, setIsAdmin] = useState(false);
 
-  // --- ESTADO PARA MODAL DE BORRAR ---
+  // --- ESTADO PARA MODAL DE BORRAR (HISTORIAL) ---
   const [deleteTarget, setDeleteTarget] = useState(null);
 
   // --- ESTADO DE AUDIO ---
@@ -104,11 +109,10 @@ export default function ChatPage() {
       });
       if (res.ok) {
         const data = await res.json();
-        setCanTeach(data.role === 'teacher' || data.role === 'admin');
-        if (data.role === 'admin') {
-          setIsAdmin(true);
-          setIsTeacherMode(true);
-        }
+        const hasPerms = data.role === 'teacher' || data.role === 'admin';
+        setCanTeach(hasPerms);
+        if (hasPerms) setIsTeacherMode(true);
+        if (data.role === 'admin') setIsAdmin(true);
       }
     } catch (e) { console.error("Error verificando rol"); }
   };
@@ -122,7 +126,7 @@ export default function ChatPage() {
 
   const loadTeacherDashboard = async () => {
     setLoading(true);
-    setMobileMenu(false); // ✅ SOLUCIÓN 1: Cerrar menú al hacer clic
+    setMobileMenu(false);
     try {
       const res = await fetch('https://backend-proyect-j2u2.onrender.com/api/reading/teacher/dashboard', { headers: { 'Authorization': `Bearer ${getToken()}` } });
       if (res.ok) {
@@ -142,24 +146,21 @@ export default function ChatPage() {
   };
 
   const loadHistoryItem = async (id) => {
-    setLoading(true); setMobileMenu(false); // ✅ También cerramos aquí al elegir historial
+    setLoading(true); setMobileMenu(false);
     try {
       const res = await fetch(`https://backend-proyect-j2u2.onrender.com/api/reading/history/${id}`, { headers: { 'Authorization': `Bearer ${getToken()}` } });
       if (!res.ok) throw new Error("Error cargando");
       const data = await res.json();
-
       setCurrentLessonId(data.id);
       setLessonContent(data.content || "");
       setQuizData(data.quiz.questions || data.quiz);
       setCurrentTopic(data.topic);
       setScore(0); setCurrentQ(0); resetQuestionState();
-
       setView(data.content ? 'lesson' : 'quiz');
     } catch (e) { setErrorMsg("Error recuperando lección"); }
     finally { setLoading(false); }
   };
 
-  // --- CONFIRMAR BORRADO ---
   const requestDelete = (e, id) => {
     e.stopPropagation();
     setDeleteTarget(id);
@@ -174,18 +175,15 @@ export default function ChatPage() {
     } catch (e) { setErrorMsg("Error al borrar"); }
   };
 
-  // --- ACCIONES ---
   const handleAction = async (type) => {
     setLoading(true); setErrorMsg(""); setSuccessMsg("");
     setModals({ paste: false, topic: false, upload: false });
-
     try {
       const token = getToken();
       let url = "";
       let body;
       let headers = { 'Authorization': `Bearer ${token}` };
       const targetEmail = isTeacherMode ? inputs.assignTo : null;
-
       const payload = {
         ...inputs,
         num_questions: parseInt(inputs.numQ),
@@ -235,16 +233,13 @@ export default function ChatPage() {
         setCurrentTopic(data.filename || inputs.topic || "Nuevo Tema");
         setView(data.text || data.content ? 'lesson' : 'quiz');
       }
-
       loadHistoryList();
       setInputs({ ...inputs, text: "", topic: "", assignTo: "" });
       setSelectedFile(null);
-
     } catch (e) { setErrorMsg("Ocurrió un error."); }
     finally { setLoading(false); }
   };
 
-  // --- QUIZ ---
   const handleAnswer = (option, correct) => { if (isLocked) return; setIsLocked(true); const hit = option === correct; setSelectedOption(option); setIsCorrect(hit); };
   const nextQuestion = () => { if (isCorrect) setScore(s => s + 1); const next = currentQ + 1; if (next < quizData.length) { setCurrentQ(next); resetQuestionState(); } else { finishQuiz(isCorrect ? score + 1 : score); } };
   const resetQuestionState = () => { setSelectedOption(null); setIsCorrect(null); setIsLocked(false); };
@@ -263,7 +258,6 @@ export default function ChatPage() {
 
   const resetApp = () => { setView('menu'); setScore(0); setCurrentQ(0); setLessonContent(""); setQuizData([]); resetQuestionState(); loadHistoryList(); setMobileMenu(false); };
 
-  // --- AUDIO ---
   const handleSpeak = () => {
     if (!lessonContent) return;
     if (isSpeaking) { window.speechSynthesis.cancel(); setIsSpeaking(false); return; }
@@ -277,7 +271,6 @@ export default function ChatPage() {
     setIsSpeaking(true);
   };
 
-  // --- PDF ---
   const downloadPDF = () => {
     const doc = new jsPDF();
     doc.text("Reporte de Calificaciones - EduBot", 14, 20);
@@ -293,7 +286,6 @@ export default function ChatPage() {
     doc.save("Reporte_EduBot.pdf");
   };
 
-  // --- TUTOR IA ---
   const handleAskTutor = async (e) => {
     e.preventDefault();
     if (!tutorInput.trim()) return;
@@ -301,7 +293,6 @@ export default function ChatPage() {
     setTutorMessages(prev => [...prev, { sender: 'user', text: userQ }]);
     setTutorInput("");
     setTutorLoading(true);
-
     try {
       const res = await fetch('https://backend-proyect-j2u2.onrender.com/api/reading/ask-tutor', {
         method: 'POST',
@@ -321,52 +312,38 @@ export default function ChatPage() {
     }
   };
 
-  // --- RENDERIZADO PRINCIPAL ---
   return (
     <div className="flex h-screen bg-slate-50 font-sans text-slate-800 overflow-hidden">
-
-      {/* --- BARRA LATERAL OSCURA --- */}
+      {/* SIDEBAR */}
       <aside className={`fixed inset-y-0 left-0 z-50 w-72 transform transition-transform duration-300 ease-in-out bg-slate-900 border-r border-slate-800 text-slate-300 shadow-2xl flex flex-col ${mobileMenu ? "translate-x-0" : "-translate-x-full"} md:relative md:translate-x-0`}>
-
-        {/* Header del Menú */}
         <div onClick={resetApp} className="p-6 border-b border-slate-800 flex items-center gap-3 cursor-pointer hover:bg-slate-800 transition">
           <div className="bg-indigo-600 p-1.5 rounded-lg text-white"><GraduationCap size={20} /></div>
           <span className="font-bold text-xl text-white tracking-tight">EduBot</span>
           <button onClick={() => setMobileMenu(false)} className="md:hidden ml-auto"><X /></button>
         </div>
 
-        {/* Sección de Usuario/Docente */}
         {canTeach && (
           <div className="px-4 mt-6 animate-in fade-in space-y-3 shrink-0">
-            <div
-              onClick={() => { setIsTeacherMode(!isTeacherMode); if (!isTeacherMode && view === 'dashboard') setView('menu'); }}
-              className={`p-3 rounded-xl border cursor-pointer flex items-center gap-3 transition-all ${isTeacherMode ? "bg-indigo-600 border-indigo-500 text-white shadow-lg" : "bg-slate-800 border-slate-700 text-slate-400 hover:text-white"}`}
-            >
-              {isTeacherMode ? <Users size={20} /> : <User size={20} />}
+            <div className="p-3 rounded-xl border bg-indigo-600 border-indigo-500 text-white shadow-lg flex items-center gap-3">
+              <Users size={20} />
               <div className="flex flex-col">
                 <span className="text-[10px] font-bold uppercase opacity-80">Modo Actual</span>
-                <span className="font-bold text-sm">{isTeacherMode ? "Docente" : "Alumno"}</span>
+                <span className="font-bold text-sm">Docente</span>
               </div>
             </div>
-
             {isTeacherMode && (
               <button onClick={loadTeacherDashboard} className="w-full flex items-center gap-3 p-3 bg-slate-800 text-slate-300 rounded-xl text-sm font-bold hover:bg-slate-700 hover:text-white transition">
                 <LayoutDashboard size={18} /> Dashboard
               </button>
             )}
-
             {isAdmin && (
-              <button
-                onClick={() => { setView('adminPanel'); setMobileMenu(false); }}
-                className="w-full flex items-center gap-3 p-3 bg-slate-800 text-slate-300 rounded-xl text-sm font-bold hover:bg-slate-700 hover:text-white transition"
-              >
+              <button onClick={() => { setView('adminPanel'); setMobileMenu(false); }} className="w-full flex items-center gap-3 p-3 bg-slate-800 text-slate-300 rounded-xl text-sm font-bold hover:bg-slate-700 hover:text-white transition">
                 <Shield size={18} /> Usuarios
               </button>
             )}
           </div>
         )}
 
-        {/* Lista de Historial (Scrollable) */}
         <div className="flex-1 overflow-y-auto p-4 custom-scrollbar mt-2">
           <h3 className="text-[10px] font-bold text-slate-500 uppercase mb-3 px-2 tracking-wider">Historial</h3>
           {history.map(h => (
@@ -381,7 +358,6 @@ export default function ChatPage() {
           ))}
         </div>
 
-        {/* Logout */}
         <div className="p-4 border-t border-slate-800 shrink-0">
           <button onClick={() => { localStorage.removeItem("token"); navigate("/login"); }} className="flex items-center gap-3 text-slate-400 w-full p-3 hover:bg-slate-800 hover:text-white rounded-xl font-medium transition">
             <LogOut size={18} /> Cerrar Sesión
@@ -414,7 +390,6 @@ export default function ChatPage() {
                 <OptionCard icon={<Upload />} title="Subir Archivo" onClick={() => fileInputRef.current.click()} iconColor="text-indigo-600" bgColor="bg-indigo-50">
                   <input type="file" ref={fileInputRef} className="hidden" onChange={(e) => { if (e.target.files[0]) { setSelectedFile(e.target.files[0]); setModals({ ...modals, upload: true }); } }} accept=".pdf,.docx,.png,.jpg,.jpeg" />
                 </OptionCard>
-                {/* 🔒 SOLO DOCENTE VE ESTO */}
                 {isTeacherMode && (
                   <>
                     <OptionCard icon={<FileText />} title="Pegar Texto" onClick={() => setModals({ ...modals, paste: true })} iconColor="text-sky-600" bgColor="bg-sky-50" />
@@ -459,13 +434,11 @@ export default function ChatPage() {
                 </div>
               )}
 
-              {/* ✅ VISTA HÍBRIDA: TABLA EN PC, TARJETAS EN MÓVIL */}
               <div className="bg-white md:rounded-3xl md:shadow-sm md:border border-slate-200 overflow-hidden bg-transparent md:bg-white">
                 {dashboardData.length === 0 ? (
                   <div className="p-16 text-center text-slate-400 bg-white rounded-3xl border border-slate-200">No hay datos registrados aún.</div>
                 ) : (
                   <>
-                    {/* VISTA ESCRITORIO (TABLA) */}
                     <table className="hidden md:table w-full text-left">
                       <thead className="bg-slate-50 border-b border-slate-100">
                         <tr>
@@ -488,8 +461,6 @@ export default function ChatPage() {
                         ))}
                       </tbody>
                     </table>
-
-                    {/* VISTA MÓVIL (TARJETAS) */}
                     <div className="md:hidden space-y-3">
                       {dashboardData.map((row, i) => (
                         <div key={i} className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
@@ -602,12 +573,10 @@ export default function ChatPage() {
               <p className="text-slate-500 mb-8">Aquí tienes el resumen de tu desempeño.</p>
               <div className="text-7xl font-black text-indigo-600 mb-2">{score} <span className="text-3xl text-slate-300 font-bold">/ {quizData.length}</span></div>
               <div className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-8">Puntuación Final</div>
-
               <div className="bg-slate-50 p-6 rounded-2xl text-left mb-8 border border-slate-100">
                 <p className="text-xs font-bold text-slate-400 uppercase mb-3">Feedback de la IA:</p>
                 <div className="prose prose-sm text-slate-600"><ReactMarkdown>{feedback}</ReactMarkdown></div>
               </div>
-
               <button onClick={resetApp} className="w-full bg-slate-900 text-white py-4 rounded-2xl font-bold flex justify-center gap-2 hover:bg-black transition">
                 <RotateCcw /> Volver al Inicio
               </button>
@@ -634,15 +603,13 @@ export default function ChatPage() {
             </div>
           </div>
         )}
-
       </div>
     </div>
   );
 }
 
-// --- SUB-COMPONENTES ESTILIZADOS ---
+// --- COMPONENTES AUXILIARES ---
 
-// Tarjeta del Menú Principal
 const OptionCard = ({ icon, title, onClick, iconColor, bgColor, children }) => (
   <div onClick={onClick} className="bg-white border border-slate-200 p-8 rounded-3xl cursor-pointer hover:shadow-xl hover:border-indigo-300 transition-all hover:-translate-y-1 group">
     <div className={`w-16 h-16 ${bgColor} ${iconColor} rounded-2xl flex items-center justify-center mb-6 mx-auto transition-transform group-hover:scale-110`}>
@@ -653,174 +620,200 @@ const OptionCard = ({ icon, title, onClick, iconColor, bgColor, children }) => (
   </div>
 );
 
-// Panel de Administración (CON TRADUCCIÓN DE ROLES Y RESPONSIVE)
-const AdminPanel = ({ token, resetApp }) => {
+// Panel de Administración
+const AdminPanel = ({ token, resetApp: onBack }) => {
   const [users, setUsers] = useState([]);
-  const [pendingRoleChange, setPendingRoleChange] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [userToDelete, setUserToDelete] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
-  // DICCIONARIO DE TRADUCCIÓN
-  const roleMap = {
-    student: "Estudiante",
-    teacher: "Docente",
-    admin: "Administrador"
+  useEffect(() => { loadUsers(); }, []);
+
+  const loadUsers = async () => {
+    try {
+      const res = await fetch('https://backend-proyect-j2u2.onrender.com/api/auth/admin/users', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) setUsers(await res.json());
+    } catch (e) { console.error("Error cargando usuarios"); }
+    setLoading(false);
   };
 
-  const getRoleName = (role) => {
-    if (!role) return "";
-    return roleMap[role.toLowerCase()] || role;
-  };
-
-  let currentUserEmail = "";
-  try {
-    const payload = JSON.parse(atob(token.split('.')[1]));
-    currentUserEmail = payload.sub || payload.email;
-  } catch (e) { }
-
-  useEffect(() => {
-    fetch('https://backend-proyect-j2u2.onrender.com/api/auth/admin/users', { headers: { 'Authorization': `Bearer ${token}` } })
-      .then(res => res.json())
-      .then(data => setUsers(Array.isArray(data) ? data : []))
-      .catch(err => console.error(err));
-  }, []);
-
-  const initiateChangeRole = (email, newRole) => {
-    setPendingRoleChange({ email, newRole });
-  };
-
-  const executeChangeRole = async () => {
-    if (!pendingRoleChange) return;
+  const handleRoleChange = async (email, newRole) => {
+    setLoading(true);
     try {
       const res = await fetch('https://backend-proyect-j2u2.onrender.com/api/auth/admin/change-role', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify({ email: pendingRoleChange.email, new_role: pendingRoleChange.newRole })
+        body: JSON.stringify({ email, new_role: newRole })
       });
-      if (res.ok) {
-        alert("✅ Rol actualizado correctamente");
-        const listRes = await fetch('https://backend-proyect-j2u2.onrender.com/api/auth/admin/users', { headers: { 'Authorization': `Bearer ${token}` } });
-        setUsers(await listRes.json());
-      }
-    } catch (e) { alert("Error"); }
-    finally { setPendingRoleChange(null); }
+      if (res.ok) { alert(`Rol actualizado a ${newRole}`); loadUsers(); }
+    } catch (e) { alert("Error de conexión"); }
+    setLoading(false);
   };
 
-  const downloadUsersCSV = () => {
-    let csv = "Usuario,Email,Rol\n";
-    users.forEach(u => csv += `${u.username},${u.email},${u.role}\n`);
-    const link = document.createElement("a");
-    link.href = encodeURI("data:text/csv;charset=utf-8," + csv);
-    link.download = "usuarios.csv";
-    link.click();
+  const promptDelete = (email) => { setUserToDelete(email); setShowDeleteModal(true); };
+
+  const confirmDelete = async () => {
+    if (!userToDelete) return;
+    setIsDeleting(true);
+    try {
+      const res = await fetch(`https://backend-proyect-j2u2.onrender.com/api/auth/admin/delete-user?email=${userToDelete}`, {
+        method: 'DELETE', headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        setShowDeleteModal(false); setUserToDelete(null);
+        alert("🗑️ Usuario eliminado correctamente."); loadUsers();
+      } else {
+        const data = await res.json();
+        alert("Error: " + (data.detail || "No se pudo borrar"));
+      }
+    } catch (e) { alert("Error de conexión"); }
+    setIsDeleting(false);
   };
 
   return (
-    <>
-      <div className="max-w-6xl mx-auto bg-white p-6 md:p-10 rounded-3xl shadow-sm border border-slate-200 animate-in slide-in-from-bottom-5">
-        <div className="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
-          <div>
-            <h2 className="text-2xl font-bold flex items-center gap-3 text-slate-800">
-              <Shield className="text-indigo-600" size={28} /> Panel de Administración
-            </h2>
-            <p className="text-slate-500 mt-1">Gestión centralizada de usuarios y permisos.</p>
-          </div>
-          <div className="flex gap-3">
-            <button onClick={downloadUsersCSV} className="px-5 py-2.5 bg-emerald-600 text-white rounded-xl font-bold hover:bg-emerald-700 flex items-center gap-2 shadow-lg shadow-emerald-100 transition">
-              <Download size={18} /> Excel
-            </button>
-            <button onClick={resetApp} className="text-slate-500 font-bold hover:text-indigo-600 px-5 py-2.5 border border-slate-200 rounded-xl hover:bg-slate-50 transition">
-              Cerrar Panel
-            </button>
-          </div>
-        </div>
-
-        {/* ✅ VISTA HÍBRIDA: TABLA EN PC, TARJETAS EN MÓVIL */}
-        <div className="md:rounded-2xl md:border border-slate-200 overflow-hidden bg-transparent md:bg-white">
-
-          {/* VISTA ESCRITORIO (TABLA) */}
-          <table className="hidden md:table w-full text-left">
-            <thead className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wider">
-              <tr><th className="p-5 font-bold">Usuario</th><th className="p-5 font-bold">Email</th><th className="p-5 font-bold">Rol Actual</th><th className="p-5 font-bold text-right">Acciones</th></tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {users.map(u => (
-                <tr key={u.id} className="hover:bg-slate-50/80 transition">
-                  <td className="p-5 font-bold text-slate-700">{u.username}</td>
-                  <td className="p-5 text-sm text-slate-500">{u.email}</td>
-                  <td className="p-5">
-                    <span className={`px-3 py-1 rounded-full text-xs font-bold border ${u.role === 'admin' ? 'bg-slate-900 text-white border-slate-900' : u.role === 'teacher' ? 'bg-indigo-50 text-indigo-700 border-indigo-100' : 'bg-white text-slate-600 border-slate-200'}`}>
-                      {getRoleName(u.role).toUpperCase()}
-                    </span>
-                  </td>
-                  <td className="p-5 flex justify-end gap-2">
-                    {u.email !== currentUserEmail && (
-                      <>
-                        <button onClick={() => initiateChangeRole(u.email, 'student')} disabled={u.role === 'student'} className="p-2 rounded-lg border border-slate-200 text-slate-500 hover:text-blue-600 hover:bg-blue-50 transition" title="Alumno"><User size={18} /></button>
-                        <button onClick={() => initiateChangeRole(u.email, 'teacher')} disabled={u.role === 'teacher'} className="p-2 rounded-lg border border-slate-200 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 transition" title="Docente"><GraduationCap size={18} /></button>
-                        <button onClick={() => initiateChangeRole(u.email, 'admin')} disabled={u.role === 'admin'} className="p-2 rounded-lg border border-slate-200 text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition" title="Admin"><Shield size={18} /></button>
-                      </>
-                    )}
-                    {u.email === currentUserEmail && <span className="text-xs text-slate-300 italic py-2">Tú</span>}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-
-          {/* VISTA MÓVIL (TARJETAS) */}
-          <div className="md:hidden space-y-3">
-            {users.map(u => (
-              <div key={u.id} className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
-                <div className="flex justify-between items-start mb-2">
-                  <div>
-                    <span className="font-bold text-slate-800 block text-lg">{u.username}</span>
-                    <span className="text-xs text-slate-500 block">{u.email}</span>
-                  </div>
-                  <span className={`px-2 py-1 rounded text-[10px] font-bold border uppercase ${u.role === 'admin' ? 'bg-slate-900 text-white border-slate-900' : u.role === 'teacher' ? 'bg-indigo-50 text-indigo-700 border-indigo-100' : 'bg-white text-slate-600 border-slate-200'}`}>
-                    {getRoleName(u.role)}
-                  </span>
-                </div>
-
-                {u.email !== currentUserEmail && (
-                  <div className="flex gap-2 mt-4 border-t border-slate-50 pt-3 justify-end">
-                    <button onClick={() => initiateChangeRole(u.email, 'student')} disabled={u.role === 'student'} className={`flex-1 py-2 rounded-lg border text-sm font-bold flex items-center justify-center gap-1 transition ${u.role === 'student' ? 'bg-slate-100 text-slate-400 border-transparent' : 'bg-white border-slate-200 text-slate-600 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200'}`}><User size={14} /> Alumno</button>
-                    <button onClick={() => initiateChangeRole(u.email, 'teacher')} disabled={u.role === 'teacher'} className={`flex-1 py-2 rounded-lg border text-sm font-bold flex items-center justify-center gap-1 transition ${u.role === 'teacher' ? 'bg-slate-100 text-slate-400 border-transparent' : 'bg-white border-slate-200 text-slate-600 hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-200'}`}><GraduationCap size={14} /> Docente</button>
-                    <button onClick={() => initiateChangeRole(u.email, 'admin')} disabled={u.role === 'admin'} className={`flex-1 py-2 rounded-lg border text-sm font-bold flex items-center justify-center gap-1 transition ${u.role === 'admin' ? 'bg-slate-100 text-slate-400 border-transparent' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-100 hover:text-slate-900 hover:border-slate-300'}`}><Shield size={14} /> Admin</button>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-
+    <div className="p-6 max-w-6xl mx-auto animate-in fade-in duration-500">
+      <div className="flex items-center gap-4 mb-8">
+        <button onClick={onBack} className="p-2 hover:bg-slate-100 rounded-full transition"><ArrowLeft size={24} className="text-slate-600" /></button>
+        <div>
+          <h1 className="text-3xl font-bold text-slate-800 flex items-center gap-3"><Shield size={32} className="text-indigo-600" /> Panel de Administración</h1>
+          <p className="text-slate-500 mt-1">Gestión de usuarios y roles de la plataforma.</p>
         </div>
       </div>
+      <div className="bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden">
+        <div className="p-5 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
+          <h2 className="font-bold text-lg text-slate-700 flex items-center gap-2"><Users size={20} /> Usuarios Registrados</h2>
+          <button className="flex items-center gap-2 text-sm font-bold text-indigo-600 hover:bg-indigo-50 px-4 py-2 rounded-lg transition"><Download size={16} /> Exportar Excel</button>
+        </div>
+        <div className="p-0">
+          {loading ? (
+            <div className="p-10 text-center text-slate-400 flex flex-col items-center gap-3"><Loader2 size={32} className="animate-spin text-indigo-500" /> Cargando usuarios...</div>
+          ) : (
+            <>
+              {/* ========================================= */}
+              {/* 🖥️ VISTA DE ESCRITORIO (TABLA TRADICIONAL) */}
+              {/* Se oculta en móviles con 'hidden md:block' */}
+              {/* ========================================= */}
+              <div className="hidden md:block overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-slate-50 text-slate-500 text-xs font-bold uppercase tracking-wider text-left">
+                    <tr><th className="p-4">Usuario</th><th className="p-4">Rol Actual</th><th className="p-4 text-center">Acciones</th></tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {users.map(u => (
+                      <tr key={u.id} className="hover:bg-slate-50/50 transition">
+                        <td className="p-4">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center font-bold">
+                              {(u.username && u.username.length > 0) ? u.username.charAt(0).toUpperCase() : "?"}
+                            </div>
+                            <div>
+                              <div className="font-bold text-slate-800">{u.username || "Sin Nombre"}</div>
+                              <div className="text-sm text-slate-500">{u.email}</div>
+                              {u.role === 'student' && <span className="text-xs bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full mt-1 inline-block">{u.grade} - {u.section}</span>}
+                            </div>
+                          </div>
+                        </td>
+                        <td className="p-4">
+                          <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase inline-flex items-center gap-1 ${u.role === 'admin' ? 'bg-purple-100 text-purple-700' : u.role === 'teacher' ? 'bg-indigo-100 text-indigo-700' : 'bg-emerald-100 text-emerald-700'}`}>
+                            {u.role === 'admin' ? <Shield size={12} /> : u.role === 'teacher' ? <GraduationCap size={12} /> : <User size={12} />}
+                            {u.role === 'teacher' ? 'Docente' : u.role === 'student' ? 'Estudiante' : 'Admin'}
+                          </span>
+                        </td>
+                        <td className="p-4">
+                          <div className="flex items-center justify-center gap-2">
+                            <button onClick={() => handleRoleChange(u.email, 'student')} title="Estudiante" className={`p-2 rounded-lg border transition ${u.role === 'student' ? 'bg-emerald-50 border-emerald-200 text-emerald-600 opacity-50' : 'hover:bg-emerald-50 text-emerald-600'}`} disabled={u.role === 'student'}><User size={18} /></button>
+                            <button onClick={() => handleRoleChange(u.email, 'teacher')} title="Docente" className={`p-2 rounded-lg border transition ${u.role === 'teacher' ? 'bg-indigo-50 border-indigo-200 text-indigo-600 opacity-50' : 'hover:bg-indigo-50 text-indigo-600'}`} disabled={u.role === 'teacher'}><GraduationCap size={18} /></button>
+                            <button onClick={() => handleRoleChange(u.email, 'admin')} title="Admin" className={`p-2 rounded-lg border transition ${u.role === 'admin' ? 'bg-purple-50 border-purple-200 text-purple-600 opacity-50' : 'hover:bg-purple-50 text-purple-600'}`} disabled={u.role === 'admin'}><Shield size={18} /></button>
+                            <button onClick={() => promptDelete(u.email)} className="p-2 ml-2 rounded-lg border border-rose-200 text-rose-500 hover:bg-rose-50 transition" title="Eliminar"><Trash2 size={18} /></button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
 
-      {/* --- MODAL CONFIRMAR CAMBIO ROL --- */}
-      {pendingRoleChange && (
-        <div className="fixed inset-0 bg-slate-900/50 z-[100] flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in">
-          <div className="bg-white w-full max-w-sm rounded-3xl p-8 shadow-2xl relative text-center">
-            <div className="flex justify-center mb-4 text-indigo-500"><Shield size={48} /></div>
-            <h3 className="text-xl font-bold text-slate-800 mb-2">¿Cambiar Rol?</h3>
-            <p className="text-sm text-slate-500 mb-6">
-              El usuario <strong>{pendingRoleChange.email}</strong> pasará a ser <strong className="uppercase text-indigo-600">{getRoleName(pendingRoleChange.newRole)}</strong>.
-            </p>
-            <div className="flex gap-3">
-              <button onClick={() => setPendingRoleChange(null)} className="flex-1 py-3 text-slate-500 font-bold hover:bg-slate-100 rounded-xl transition">Cancelar</button>
-              <button onClick={executeChangeRole} className="flex-1 py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition shadow-lg shadow-indigo-100">Confirmar</button>
+              {/* ========================================= */}
+              {/* 📱 VISTA MÓVIL (TARJETAS INDIVIDUALES)   */}
+              {/* Se muestra SOLO en móviles con 'md:hidden' */}
+              {/* ========================================= */}
+              <div className="md:hidden p-4 space-y-4 bg-slate-50">
+                {users.map(u => (
+                  <div key={u.id} className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+                    {/* Cabecera de la Tarjeta */}
+                    <div className="flex items-center gap-3 mb-4 border-b border-slate-100 pb-3">
+                      <div className="w-12 h-12 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center font-bold text-lg shrink-0">
+                        {(u.username && u.username.length > 0) ? u.username.charAt(0).toUpperCase() : "?"}
+                      </div>
+                      <div className="overflow-hidden">
+                        <div className="font-bold text-slate-800 text-lg truncate">{u.username || "Sin Nombre"}</div>
+                        <div className="text-xs text-slate-500 truncate">{u.email}</div>
+                      </div>
+                    </div>
+
+                    {/* Información y Rol */}
+                    <div className="flex justify-between items-center mb-5">
+                      <span className={`px-3 py-1.5 rounded-full text-xs font-bold uppercase inline-flex items-center gap-1.5 ${u.role === 'admin' ? 'bg-purple-100 text-purple-700' : u.role === 'teacher' ? 'bg-indigo-100 text-indigo-700' : 'bg-emerald-100 text-emerald-700'}`}>
+                        {u.role === 'admin' ? <Shield size={12} /> : u.role === 'teacher' ? <GraduationCap size={12} /> : <User size={12} />}
+                        {u.role === 'teacher' ? 'Docente' : u.role === 'student' ? 'Estudiante' : 'Admin'}
+                      </span>
+                      {u.role === 'student' && <span className="text-xs font-mono text-slate-400 bg-slate-100 px-2 py-1 rounded">{u.grade} • {u.section}</span>}
+                    </div>
+
+                    {/* Botones de Acción (Grandes para el dedo) */}
+                    <div className="grid grid-cols-4 gap-3">
+                      <button onClick={() => handleRoleChange(u.email, 'student')} disabled={u.role === 'student'} className={`flex flex-col items-center justify-center p-2 rounded-xl border transition ${u.role === 'student' ? 'bg-slate-100 text-slate-300' : 'border-slate-200 text-emerald-600 hover:bg-emerald-50'}`}>
+                        <User size={20} /> <span className="text-[9px] font-bold mt-1">Est.</span>
+                      </button>
+                      <button onClick={() => handleRoleChange(u.email, 'teacher')} disabled={u.role === 'teacher'} className={`flex flex-col items-center justify-center p-2 rounded-xl border transition ${u.role === 'teacher' ? 'bg-slate-100 text-slate-300' : 'border-slate-200 text-indigo-600 hover:bg-indigo-50'}`}>
+                        <GraduationCap size={20} /> <span className="text-[9px] font-bold mt-1">Prof.</span>
+                      </button>
+                      <button onClick={() => handleRoleChange(u.email, 'admin')} disabled={u.role === 'admin'} className={`flex flex-col items-center justify-center p-2 rounded-xl border transition ${u.role === 'admin' ? 'bg-slate-100 text-slate-300' : 'border-slate-200 text-purple-600 hover:bg-purple-50'}`}>
+                        <Shield size={20} /> <span className="text-[9px] font-bold mt-1">Adm.</span>
+                      </button>
+                      <button onClick={() => promptDelete(u.email)} className="flex flex-col items-center justify-center p-2 rounded-xl border border-rose-200 text-rose-500 hover:bg-rose-50">
+                        <Trash2 size={20} /> <span className="text-[9px] font-bold mt-1">Borrar</span>
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+      {showDeleteModal && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="bg-rose-50 p-6 flex items-center gap-4 border-b border-rose-100">
+              <div className="w-12 h-12 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center shrink-0"><AlertTriangle size={24} /></div>
+              <div><h3 className="text-xl font-bold text-rose-700">¿Eliminar usuario?</h3><p className="text-rose-600/80 text-sm">Esta acción es irreversible.</p></div>
+            </div>
+            <div className="p-6 text-slate-600">
+              <p>Estás a punto de eliminar permanentemente la cuenta de:</p>
+              <div className="mt-3 p-3 bg-slate-50 rounded-lg border border-slate-200 font-mono text-sm text-center font-bold text-slate-800 break-all">{userToDelete}</div>
+              <p className="mt-4 text-sm text-slate-500">Se perderá todo su historial, notas y chats generados.</p>
+            </div>
+            <div className="p-4 bg-slate-50 border-t border-slate-100 flex gap-3 justify-end">
+              <button onClick={() => { setShowDeleteModal(false); setUserToDelete(null); }} className="px-5 py-2.5 rounded-xl border border-slate-200 text-slate-700 font-bold hover:bg-slate-100 transition" disabled={isDeleting}>Cancelar</button>
+              <button onClick={confirmDelete} disabled={isDeleting} className="px-5 py-2.5 rounded-xl bg-rose-600 text-white font-bold hover:bg-rose-700 transition shadow-lg shadow-rose-200 flex items-center gap-2 disabled:opacity-70">
+                {isDeleting ? (<> <Loader2 size={18} className="animate-spin" /> Borrando... </>) : (<> <Trash2 size={18} /> Sí, eliminar </>)}
+              </button>
             </div>
           </div>
         </div>
       )}
-    </>
+    </div>
   );
 };
 
-// Modal de Configuración (CON DOBLE FILTRO: AÑO Y SECCIÓN)
 const ConfigModal = ({ title, onClose, onConfirm, inputs, setInputs, type, placeholder, fileName, isTeacher }) => {
   const [suggestions, setSuggestions] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [typingTimeout, setTypingTimeout] = useState(null);
-
-  // ESTADOS DE FILTRO
   const [filterGrade, setFilterGrade] = useState("Todos");
   const [filterSection, setFilterSection] = useState("Todos");
 
@@ -831,16 +824,12 @@ const ConfigModal = ({ title, onClose, onConfirm, inputs, setInputs, type, place
       const res = await fetch(`https://backend-proyect-j2u2.onrender.com/api/reading/users/search?q=${currentTerm}`, { headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` } });
       if (res.ok) {
         const users = await res.json();
-
-        // ⚡ LÓGICA DE FILTRADO DOBLE
         const filtered = users.filter(u => {
           const matchGrade = filterGrade === "Todos" || u.grade === filterGrade;
           const matchSection = filterSection === "Todos" || u.section === filterSection;
           return matchGrade && matchSection;
         });
-
-        setSuggestions(filtered);
-        setShowSuggestions(filtered.length > 0);
+        setSuggestions(filtered); setShowSuggestions(filtered.length > 0);
       }
     } catch (e) { }
   };
@@ -888,49 +877,30 @@ const ConfigModal = ({ title, onClose, onConfirm, inputs, setInputs, type, place
         {isTeacher && (
           <div className="relative mb-8 bg-slate-50 p-4 rounded-xl border border-slate-200">
             <label className="text-xs font-bold text-indigo-600 uppercase block mb-3 tracking-wider flex items-center gap-2"><Users size={14} /> Asignar a Estudiante</label>
-
-            {/* FILTROS: AÑO Y SECCIÓN */}
             <div className="flex gap-2 mb-3">
-              {/* SELECTOR DE AÑO */}
               <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-lg p-2 w-2/3">
                 <Filter size={16} className="text-slate-400" />
                 <select className="bg-transparent text-xs font-bold text-slate-600 outline-none w-full cursor-pointer" value={filterGrade} onChange={(e) => setFilterGrade(e.target.value)}>
-                  <option value="Todos">Todos los Años</option>
-                  <option value="1er Año">1er Año</option>
-                  <option value="2do Año">2do Año</option>
-                  <option value="3er Año">3er Año</option>
-                  <option value="4to Año">4to Año</option>
-                  <option value="5to Año">5to Año</option>
+                  <option value="Todos">Todos los Años</option><option value="1er Año">1er Año</option><option value="2do Año">2do Año</option><option value="3er Año">3er Año</option><option value="4to Año">4to Año</option><option value="5to Año">5to Año</option>
                 </select>
               </div>
-
-              {/* SELECTOR DE SECCIÓN */}
               <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-lg p-2 w-1/3">
                 <span className="text-xs font-bold text-slate-400">Sec:</span>
                 <select className="bg-transparent text-xs font-bold text-slate-600 outline-none w-full cursor-pointer" value={filterSection} onChange={(e) => setFilterSection(e.target.value)}>
-                  <option value="Todos">Todas</option>
-                  <option value="A">A</option>
-                  <option value="B">B</option>
-                  <option value="C">C</option>
-                  <option value="D">D</option>
+                  <option value="Todos">Todas</option><option value="A">A</option><option value="B">B</option><option value="C">C</option><option value="D">D</option>
                 </select>
               </div>
             </div>
-
             <div className="flex items-center gap-3 bg-white border border-slate-200 p-3 rounded-xl focus-within:ring-2 ring-indigo-500 transition">
               <UserPlus size={18} className="text-slate-400" />
               <input type="text" placeholder="Escribe nombre..." className="bg-transparent w-full outline-none text-sm font-medium text-slate-700 placeholder:text-slate-400" value={inputs.assignTo} onChange={handleAssignChange} autoComplete="off" />
             </div>
-
             {showSuggestions && (
               <div className="absolute top-full left-0 w-full bg-white border border-slate-200 rounded-xl shadow-xl mt-1 z-50 overflow-hidden max-h-40 overflow-y-auto">
                 {suggestions.map((u, i) => (
                   <div key={i} onClick={(e) => { e.stopPropagation(); selectUser(u.email); }} className="p-3 hover:bg-indigo-50 cursor-pointer border-b border-slate-50 last:border-0 flex justify-between items-center">
                     <div><span className="font-bold text-sm block text-slate-700">{u.name}</span><span className="text-xs text-slate-400">{u.email}</span></div>
-                    {/* VISUALIZACIÓN DE GRADO Y SECCIÓN EN LA LISTA */}
-                    <span className="text-[10px] font-bold bg-slate-100 text-slate-500 px-2 py-1 rounded">
-                      {u.grade || "S/G"} {u.section ? `- Sec. ${u.section}` : ""}
-                    </span>
+                    <span className="text-[10px] font-bold bg-slate-100 text-slate-500 px-2 py-1 rounded">{u.grade || "S/G"} {u.section ? `- Sec. ${u.section}` : ""}</span>
                   </div>
                 ))}
               </div>
@@ -940,11 +910,9 @@ const ConfigModal = ({ title, onClose, onConfirm, inputs, setInputs, type, place
 
         <div className="flex justify-end gap-3">
           <button onClick={onClose} className="px-5 py-2.5 text-slate-500 font-bold hover:bg-slate-100 rounded-xl transition">Cancelar</button>
-          <button onClick={onConfirm} className="px-6 py-2.5 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 shadow-lg shadow-indigo-100 transition">
-            {inputs.assignTo && isTeacher ? "Asignar Tarea" : "Generar Contenido"}
-          </button>
+          <button onClick={onConfirm} className="px-6 py-2.5 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 shadow-lg shadow-indigo-100 transition">{inputs.assignTo && isTeacher ? "Asignar Tarea" : "Generar Contenido"}</button>
         </div>
       </div>
     </div>
   );
-};  
+};
