@@ -23,17 +23,33 @@ export default function LoginPage() {
     setError('');
     setLoading(true);
 
+    // --- CORRECCIÓN 1: VALIDACIÓN DE CORREO ESTRICTA ---
+    // Solo permitimos dominios reales. Si quieres permitir otros, agrégalos al paréntesis.
+    const emailRegex = /^[a-zA-Z0-9._-]+@(gmail\.com|hotmail\.com|outlook\.com|yahoo\.com|yahoo\.es)$/;
+
+    if (isRegister && !emailRegex.test(formData.email)) {
+      setError("Por favor, usa un correo válido (Gmail, Outlook, Hotmail o Yahoo).");
+      setLoading(false);
+      return; // Detenemos la función aquí
+    }
+    // ---------------------------------------------------
+
     const url = isRegister
       ? 'https://backend-proyect-j2u2.onrender.com/api/auth/register'
       : 'https://backend-proyect-j2u2.onrender.com/api/auth/login';
 
     try {
       let body;
-      let headers = {};
+      let headers = { 'Content-Type': 'application/json' }; // Simplificamos headers
 
       if (isRegister) {
-        headers = { 'Content-Type': 'application/json' };
-        body = JSON.stringify({ ...formData, grade, section });
+        body = JSON.stringify({
+          email: formData.email,
+          password: formData.password,
+          username: formData.username, // Enviamos el nombre para validar duplicados
+          grade: grade,
+          section: section
+        });
       } else {
         headers = { 'Content-Type': 'application/x-www-form-urlencoded' };
         const params = new URLSearchParams();
@@ -45,14 +61,18 @@ export default function LoginPage() {
       const res = await fetch(url, { method: 'POST', headers, body });
       const data = await res.json();
 
-      if (!res.ok) throw new Error(data.detail || 'Error en la solicitud');
+      if (!res.ok) {
+        // Aquí mostraremos el error si el nombre ya existe (viene del backend)
+        throw new Error(data.detail || 'Error en la solicitud');
+      }
 
       if (isRegister) {
         alert("¡Registro exitoso! Ahora inicia sesión.");
         setIsRegister(false);
+        setFormData({ email: '', password: '', username: '' }); // Limpiamos formulario
       } else {
         localStorage.setItem('token', data.access_token);
-        navigate('/chat');
+        navigate('/chat'); // O la ruta a la que redirijas
       }
 
     } catch (err) {
