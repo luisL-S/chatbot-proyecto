@@ -20,6 +20,7 @@ pwd_hasher = PasswordHasher()
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
 
+
 # --- MODELOS ACTUALIZADOS ---
 class UserCreate(BaseModel):
     email: str

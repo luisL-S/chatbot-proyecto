@@ -1,4 +1,5 @@
 import os
+import random
 from fastapi import APIRouter, UploadFile, File, Form, Depends, HTTPException
 from pydantic import BaseModel
 from typing import Optional, List
@@ -13,6 +14,50 @@ from app.utils.file_processing import extract_text_from_pdf, extract_text_from_d
 
 router = APIRouter()
 db = get_database()
+
+def clean_quiz_data(quiz_data):
+    """
+    Recorre las preguntas generadas por la IA y asegura que:
+    1. No haya opciones repetidas.
+    2. La respuesta correcta esté incluida.
+    3. Siempre haya al menos 3 opciones.
+    """
+    cleaned_questions = []
+    
+    # A veces la IA devuelve un dict {"questions": [...]}, a veces una lista directa.
+    # Normalizamos esto:
+    questions_list = quiz_data.get("questions", []) if isinstance(quiz_data, dict) else quiz_data
+    
+    for q in questions_list:
+        options = q.get("options", [])
+        correct_answer = q.get("answer", "")
+        
+        # 1. Usamos un 'set' para eliminar duplicados automáticamente
+        # y aseguramos que la respuesta correcta esté dentro
+        unique_options = set(options)
+        unique_options.add(correct_answer)
+        
+        # Convertimos a lista
+        final_options = list(unique_options)
+        
+        # 2. Si al borrar duplicados nos quedamos con pocas opciones (ej. solo 2),
+        # rellenamos con genéricas para que no se vea feo.
+        fillers = ["Ninguna de las anteriores", "Todas las anteriores", "No se menciona en el texto"]
+        filler_index = 0
+        
+        while len(final_options) < 3 and filler_index < len(fillers):
+            if fillers[filler_index] not in final_options:
+                final_options.append(fillers[filler_index])
+            filler_index += 1
+            
+        # 3. Barajamos las opciones para que el orden sea aleatorio
+        random.shuffle(final_options)
+        
+        # Actualizamos la pregunta
+        q["options"] = final_options
+        cleaned_questions.append(q)
+        
+    return cleaned_questions
 
 # --- MODELOS DE DATOS ---
 class TextRequest(BaseModel):
@@ -184,6 +229,9 @@ async def upload_file(
 
         if not quiz: raise HTTPException(500, "Error IA.")
 
+        # --- CORRECCIÓN APLICADA AQUÍ ---
+        quiz = clean_quiz_data(quiz)
+
         is_docente = await is_teacher(current_user)
         lid, report = await distribute_lesson_to_users(content, quiz, f"Archivo: {file.filename}", get_user_id(current_user), assign_to, is_docente)
         
@@ -202,6 +250,9 @@ async def analyze_text(req: TextRequest, user: dict = Depends(get_current_user),
         if len(req.text) < 10: raise HTTPException(400, "Texto muy corto.")
         quiz = await ai.generate_quiz(req.text, req.num_questions, req.difficulty)
         
+        # --- CORRECCIÓN APLICADA AQUÍ ---
+        quiz = clean_quiz_data(quiz)
+
         is_docente = await is_teacher(user)
         lid, report = await distribute_lesson_to_users(req.text, quiz, "Texto Pegado", get_user_id(user), req.assign_to, is_docente)
         
@@ -219,6 +270,9 @@ async def create_lesson(req: TopicRequest, user: dict = Depends(get_current_user
         text = await ai.generate_lesson_content(req.topic, req.difficulty)
         quiz = await ai.generate_quiz(text, req.num_questions, req.difficulty)
         
+        # --- CORRECCIÓN APLICADA AQUÍ ---
+        quiz = clean_quiz_data(quiz)
+
         is_docente = await is_teacher(user)
         lid, report = await distribute_lesson_to_users(text, quiz, req.topic.title(), get_user_id(user), req.assign_to, is_docente)
         
